@@ -36,6 +36,7 @@ fn main() {
 
     // Regex to extract content inside ("...")
     let re = Regex::new(r#"\("([^"]*)"\)"#).unwrap();
+    let re_var = Regex::new(r#"\b([a-zA-Z_]\w*)\s*=\s*([^\n#]+)"#).unwrap();
     // Read and process lines
     match fs::read_to_string(&file_path) {
         Ok(contents) => {
@@ -55,12 +56,25 @@ fn main() {
                             for _i in 0..(tabs * 4) {
                                 spaces.push_str(" ");
                             }
-                            let content = format!("{}println!(\"{}\");", spaces, inside);
+                            let content = format!("{}println!(\"{}\");\n", spaces, inside);
                             if let Err(e) = file.write_all(content.as_bytes()) {
                                 eprintln!("Failed to wirtie into a file: {}", e);
                             } else {
                                 println!("Println written to a file");
                             }
+                        }
+                    } else if let Some(caps) = re_var.captures(line) {
+                        let var_name = &caps[1];
+                        let var_val = &caps[2];
+                        let mut spaces = "".to_string();
+                        for _i in 0..(tabs * 4) {
+                            spaces.push_str(" ");
+                        }
+                        let content = format!("{}let {} = {};\n", spaces, var_name, var_val);
+                        if let Err(e) = file.write_all(content.as_bytes()) {
+                            eprintln!("Failed to write into a file: {}", e);
+                        } else {
+                            println!("Var added to a file");
                         }
                     } else {
                         println!("{}. {}", i + 1, line);
