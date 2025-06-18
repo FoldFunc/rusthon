@@ -1,0 +1,14 @@
+WHITESPACE = _{ " " | "\t" | NEWLINE }
+NEWLINE = _{ "\n" | "\r\n" }
+
+code       = { SOI ~ statement* ~ EOI }
+statement  = { assignment | print }
+
+assignment = { ident ~ "=" ~ expr }
+print      = { "print" ~ "(" ~ expr ~ ")" }
+
+ident      = @{ ASCII_ALPHA ~ (ASCII_ALPHANUMERIC | "_")* }
+expr       = _{ string | number | ident }
+string     = @{ "\"" ~ (!"\"" ~ ANY)* ~ "\"" }
+number     = @{ ASCII_DIGIT+ }
+

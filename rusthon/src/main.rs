@@ -1,106 +1,123 @@
-use regex::Regex;
-use std::env;
-use std::fs;
-use std::fs::File;
-use std::io::Write;
-use std::path::Path;
-use std::process::Command;
-fn main() {
-    // Create output file
-    let mut file = match File::create("output.rs") {
-        Ok(f) => f,
-        Err(e) => {
-            eprintln!("Failed to create a file: {}", e);
-            std::process::exit(1);
+use pest::Parser;
+use pest::iterators::Pair;
+use pest_derive::Parser;
+
+#[derive(Parser)]
+#[grammar = "grammar/py.pest"]
+struct PyParser;
+
+#[derive(Debug)]
+pub enum Statement {
+    Assignment(String, Expr),
+    Print(Expr),
+}
+
+#[derive(Debug)]
+pub enum Expr {
+    Var(String),
+    Str(String),
+    Num(i64),
+}
+
+fn parse_statement(pair: Pair<Rule>) -> Statement {
+    match pair.as_rule() {
+        Rule::assignment => {
+            let mut inner = pair.into_inner();
+            let ident = inner.next().unwrap().as_str().to_string();
+            let expr = parse_expr(inner.next().unwrap());
+            Statement::Assignment(ident, expr)
         }
-    };
-    let mut tabs = 0;
-    let start_content = "fn main() {\n";
-    if let Err(e) = file.write_all(start_content.as_bytes()) {
-        eprintln!("Failed to write into a file: {}", e);
-    } else {
-        println!("Start code written to a file");
+        Rule::print => {
+            let mut inner = pair.into_inner();
+            let expr = parse_expr(inner.next().unwrap());
+            Statement::Print(expr)
+        }
+        _ => panic!("Unexpected rule in parser: {:?}", pair.as_rule()),
     }
-    tabs = tabs + 1;
+}
 
-    // Parse command line args
-    let args: Vec<String> = env::args().collect();
-    if args.len() != 3 {
-        eprintln!("Usage: {} <dir_path> <filename>", args[0]);
-        std::process::exit(1);
+fn parse_expr(pair: Pair<Rule>) -> Expr {
+    match pair.as_rule() {
+        Rule::string => {
+            let s = pair.as_str();
+            let trimmed = &s[1..s.len() - 1]; // Remove quotes
+            Expr::Str(trimmed.to_string())
+        }
+        Rule::number => Expr::Num(pair.as_str().parse().unwrap()),
+        Rule::ident => Expr::Var(pair.as_str().to_string()),
+        _ => panic!("Unexpected expr rule: {:?}", pair.as_rule()),
     }
+}
 
-    let dir_path = &args[1];
-    let file_name = &args[2];
-    let file_path = Path::new(dir_path).join(file_name);
+fn parse_program(source: &str) -> Vec<Statement> {
+    let parsed = PyParser::parse(Rule::code, source)
+        .expect("Failed to parse")
+        .next()
+        .unwrap();
 
-    // Regex to extract content inside ("...")
-    let re = Regex::new(r#"\("([^"]*)"\)"#).unwrap();
-    let re_var = Regex::new(r#"\b([a-zA-Z_]\w*)\s*=\s*([^\n#]+)"#).unwrap();
-    // Read and process lines
-    match fs::read_to_string(&file_path) {
-        Ok(contents) => {
-            println!("File contents:\n");
-
-            for (i, line) in contents.lines().enumerate() {
-                let first_word = line.split_whitespace().next();
-
-                if let Some(word) = first_word {
-                    if word == "print" || word.starts_with("print(") {
-                        println!("{}. {}  <-- starts with 'print'", i + 1, line);
-
-                        if let Some(caps) = re.captures(line) {
-                            let inside = &caps[1];
-                            println!("     └─ inside (\"...\"): {}", inside);
-                            let mut spaces = "".to_string();
-                            for _i in 0..(tabs * 4) {
-                                spaces.push_str(" ");
-                            }
-                            let content = format!("{}println!(\"{}\");\n", spaces, inside);
-                            if let Err(e) = file.write_all(content.as_bytes()) {
-                                eprintln!("Failed to wirtie into a file: {}", e);
-                            } else {
-                                println!("Println written to a file");
-                            }
-                        }
-                    } else if let Some(caps) = re_var.captures(line) {
-                        let var_name = &caps[1];
-                        let var_val = &caps[2];
-                        let mut spaces = "".to_string();
-                        for _i in 0..(tabs * 4) {
-                            spaces.push_str(" ");
-                        }
-                        let content = format!("{}let {} = {};\n", spaces, var_name, var_val);
-                        if let Err(e) = file.write_all(content.as_bytes()) {
-                            eprintln!("Failed to write into a file: {}", e);
-                        } else {
-                            println!("Var added to a file");
-                        }
-                    } else {
-                        println!("{}. {}", i + 1, line);
-                    }
-                } else {
-                    println!("{}. (empty line)", i + 1);
+    parsed
+        .into_inner()
+        .filter_map(|pair| {
+            match pair.as_rule() {
+                Rule::statement => {
+                    let inner = pair.into_inner().next().unwrap();
+                    Some(parse_statement(inner))
                 }
+                _ => None, // skip EOI etc.
             }
-        }
-        Err(e) => eprintln!("Failed to read file '{}': {}", file_path.display(), e),
-    }
-    let content_end = "\n}";
-    if let Err(e) = file.write_all(content_end.as_bytes()) {
-        eprintln!("Error writing to a file: {}", e);
-    } else {
-        println!("Written to a file");
-    }
+        })
+        .collect()
+}
 
-    let output = Command::new("rustc")
+fn generate_rust(stmt: &Statement) -> String {
+    match stmt {
+        Statement::Assignment(name, expr) => {
+            format!("let {} = {};", name, generate_expr(expr))
+        }
+        Statement::Print(expr) => match expr {
+            Expr::Str(s) => format!("println!(\"{}\");", s),
+            _ => format!("println!(\"{{}}\", {});", generate_expr(expr)),
+        },
+    }
+}
+
+fn generate_expr(expr: &Expr) -> String {
+    match expr {
+        Expr::Str(s) => format!("\"{}\"", s),
+        Expr::Num(n) => n.to_string(),
+        Expr::Var(v) => v.clone(),
+    }
+}
+
+fn main() {
+    let code = r#"
+        x = 42
+        name = "Oh hell yeah it works"
+        print("Hello dear")
+        print(name)
+        print(x)
+    "#;
+
+    let statements = parse_program(code);
+
+    let mut rust_code = String::from("fn main() {\n");
+    for stmt in &statements {
+        rust_code.push_str("    ");
+        rust_code.push_str(&generate_rust(stmt));
+        rust_code.push('\n');
+    }
+    rust_code.push_str("}\n");
+
+    std::fs::write("output.rs", rust_code).expect("Failed to write output.rs");
+
+    let status = std::process::Command::new("rustc")
         .arg("output.rs")
-        .output()
-        .expect("Failed to execute compilation");
-    if output.status.success() {
-        println!("Compiled succesfully");
+        .status()
+        .expect("Failed to compile output.rs");
+
+    if status.success() {
+        println!("Compiled successfully");
     } else {
-        eprintln!("Compilation error");
-        eprintln!("{:?}", String::from_utf8(output.stderr));
+        eprintln!("Compilation failed");
     }
 }
