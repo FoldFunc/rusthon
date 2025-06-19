@@ -1,3 +1,4 @@
+use input_macro_fold_func::input;
 use pest::Parser;
 use pest::iterators::Pair;
 use pest_derive::Parser;
@@ -21,6 +22,7 @@ pub enum Expr {
     Var(String),
     Str(String),
     Num(i64),
+    Input(Box<Expr>), // Represents input(...)
 }
 
 #[derive(Debug)]
@@ -76,30 +78,45 @@ fn parse_expr(pair: Pair<Rule>) -> Expr {
         }
         Rule::number => Expr::Num(pair.as_str().parse().unwrap()),
         Rule::ident => Expr::Var(pair.as_str().to_string()),
+        Rule::input_call => {
+            let _ = prepend_to_file("output.rs", "use input_macro::input;");
+            let mut inner = pair.into_inner();
+            inner.next(); // skip "input"
+            let prompt = parse_expr(inner.next().unwrap());
+            Expr::Input(Box::new(prompt))
+        }
         _ => panic!("Unexpected expr rule: {:?}", pair.as_rule()),
     }
 }
 
-fn parse_program(source: &str) -> Vec<Statement> {
+fn parse_program(source: &str) -> (Vec<Statement>, bool) {
     let parsed = PyParser::parse(Rule::code, source)
         .expect("Failed to parse")
         .next()
         .unwrap();
 
-    parsed
+    let mut has_input = false;
+
+    let statements = parsed
         .into_inner()
         .filter_map(|pair| match pair.as_rule() {
             Rule::statement => {
                 let inner = pair.into_inner().next().unwrap();
-                Some(parse_statement(inner))
+                // Check if this statement or its expr uses input_call
+                let stmt = parse_statement(inner);
+                if statement_has_input(&stmt) {
+                    has_input = true;
+                }
+                Some(stmt)
             }
             _ => None,
         })
-        .collect()
+        .collect();
+
+    (statements, has_input)
 }
 
 fn generate_rust(stmt: &Statement) -> String {
-    println!("stmt: {:?}", stmt);
     match stmt {
         Statement::Assignment(name, expr) => {
             format!("let {} = {};", name, generate_expr(expr))
@@ -118,7 +135,6 @@ fn generate_rust(stmt: &Statement) -> String {
                 match part {
                     FormatString::TextChunk(s) => {
                         let escaped = s.replace('{', "{{").replace('}', "}}");
-                        format_string.push_str(" ");
                         format_string.push_str(&escaped);
                     }
                     FormatString::Interpolation(expr) => {
@@ -142,6 +158,9 @@ fn generate_expr(expr: &Expr) -> String {
         Expr::Str(s) => format!("\"{}\"", s),
         Expr::Num(n) => n.to_string(),
         Expr::Var(v) => v.clone(),
+        Expr::Input(prompt_expr) => {
+            format!("input!({})", generate_expr(prompt_expr))
+        }
     }
 }
 
@@ -158,12 +177,55 @@ fn get_file_name() -> String {
         process::exit(1);
     })
 }
+fn prepend_to_file(path: &str, text: &str) -> std::io::Result<()> {
+    // Read existing content
+    let original = fs::read_to_string(path)?;
+
+    // Combine new text + old content
+    let new_content = format!("{}{}", text, original);
+
+    // Write it back, overwriting the file
+    fs::write(path, new_content)?;
+
+    Ok(())
+}
+fn statement_has_input(stmt: &Statement) -> bool {
+    match stmt {
+        Statement::Assignment(_, expr) => expr_has_input(expr),
+        Statement::Print(expr) => expr_has_input(expr),
+        Statement::Printf(parts) => parts.iter().any(|part| match part {
+            FormatString::Interpolation(_expr_str) => false,
+            FormatString::TextChunk(_) => false,
+        }),
+    }
+}
+
+fn expr_has_input(expr: &Expr) -> bool {
+    match expr {
+        Expr::Input(_) => true,
+        _ => false,
+    }
+}
 
 fn main() {
+    let _ = std::process::Command::new("cargo")
+        .arg("new")
+        .arg("output")
+        .status()
+        .expect("Failed to create a folder");
     let code = get_file_name();
-    let statements = parse_program(&code);
+    let (statements, has_input) = parse_program(&code);
     let mut tabs = 0;
-    let mut rust_code = String::from("fn main() {\n");
+    let mut rust_code = String::from("");
+    let mut toml_code = String::from("");
+    if has_input {
+        toml_code += &String::from(
+            "[package]\nname = \"output\"\nversion = \"0.1.0\"\nedition = \"2024\"\n\n[dependencies]\ninput_macro_fold_func = \"0.1.0\"",
+        );
+        rust_code += &String::from("use input_macro_fold_func::input;\nfn main() {\n")
+    } else {
+        rust_code += &String::from("fn main() {\n");
+    }
     tabs += 1;
     for stmt in &statements {
         let spaces = " ".repeat(tabs * 4);
@@ -173,16 +235,12 @@ fn main() {
     }
     rust_code.push_str("}\n");
 
-    fs::write("output.rs", rust_code).expect("Failed to write output.rs");
-
-    let status = std::process::Command::new("rustc")
-        .arg("output.rs")
+    fs::write("output/src/main.rs", rust_code).expect("Failed to write output.rs");
+    fs::write("output/Cargo.toml", toml_code).expect("Failed to write Cargo.toml");
+    let _ = std::process::Command::new("cargo")
+        .arg("run")
+        .arg("--manifest-path")
+        .arg("output/Cargo.toml")
         .status()
-        .expect("Failed to compile output.rs");
-
-    if status.success() {
-        println!("Compiled successfully");
-    } else {
-        eprintln!("Compilation failed");
-    }
+        .expect("Failed to go to the output directory");
 }

@@ -1,2 +1,7 @@
-python: print(f"Hello my {name}")
-rust: println!("Hello my {}", name);
+python:
+    x = int(input("Enter your name: "))
+    print(x)
+
+rust:
+    let x = input!("Enter your name: ");
+    print(x);
