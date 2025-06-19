@@ -224,6 +224,9 @@ fn main() {
         );
         rust_code += &String::from("use input_macro_fold_func::input;\nfn main() {\n")
     } else {
+        toml_code += &String::from(
+            "[package]\nname = \"output\"\nversion = \"0.1.0\"\nedition = \"2024\"\n\n[dependencies]",
+        );
         rust_code += &String::from("fn main() {\n");
     }
     tabs += 1;
