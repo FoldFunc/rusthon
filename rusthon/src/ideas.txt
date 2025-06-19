@@ -1,0 +1,2 @@
+python: print(f"Hello my {name}")
+rust: println!("Hello my {}", name);

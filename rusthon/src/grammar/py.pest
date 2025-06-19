@@ -1,14 +1,20 @@
-WHITESPACE = _{ " " | "\t" | NEWLINE }
-NEWLINE = _{ "\n" | "\r\n" }
+WHITESPACE   = _{ " " | "\t" | NEWLINE }
+NEWLINE      = _{ "\n" | "\r\n" }
 
-code       = { SOI ~ statement* ~ EOI }
-statement  = { assignment | print }
+code         = { SOI ~ statement* ~ EOI }
+statement    = { assignment | print | printf }
 
-assignment = { ident ~ "=" ~ expr }
-print      = { "print" ~ "(" ~ expr ~ ")" }
+assignment   = { ident ~ "=" ~ expr }
+print        = { "print" ~ "(" ~ expr ~ ")" }
+printf       = { "print" ~ "(" ~ format_string ~ ")" }
 
-ident      = @{ ASCII_ALPHA ~ (ASCII_ALPHANUMERIC | "_")* }
-expr       = _{ string | number | ident }
-string     = @{ "\"" ~ (!"\"" ~ ANY)* ~ "\"" }
-number     = @{ ASCII_DIGIT+ }
+format_string = { "f\"" ~ (format_part)* ~ "\"" }
+format_part   = { interpolation | raw_text }
+interpolation = { "{" ~ expr ~ "}" }
+raw_text     = @{ (!("{" | "\"") ~ ANY)+ }
+
+ident        = @{ ASCII_ALPHA ~ (ASCII_ALPHANUMERIC | "_")* }
+expr         = _{ string | number | ident }
+string       = @{ "\"" ~ (!"\"" ~ ANY)* ~ "\"" }
+number       = @{ ASCII_DIGIT+ }
 
