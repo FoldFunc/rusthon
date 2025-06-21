@@ -2,8 +2,9 @@ WHITESPACE   = _{ " " | "\t" | NEWLINE }
 NEWLINE      = _{ "\n" | "\r\n" }
 
 code         = { SOI ~ statement* ~ EOI }
-statement    = { assignment | print | printf }
+statement    = { assigment_math | assignment | print | printf }
 
+assigment_math = { ident ~ "==" ~ math_expr }
 assignment   = { ident ~ "=" ~ expr }
 print        = { "print" ~ "(" ~ expr ~ ")" }
 printf       = { "print" ~ "(" ~ format_string ~ ")" }
@@ -18,6 +19,12 @@ raw_text     = @{ (!("{" | "\"") ~ ANY)+ }
 
 ident        = @{ ASCII_ALPHA ~ (ASCII_ALPHANUMERIC | "_")* }
 
+math_expr = _{ math_stmt }
+math_stmt = { mul_div ~ (add_op ~ mul_div)* }
+mul_div = {atom ~ (mul_op ~ atom)* }
+add_op    = { "+" | "-" }
+mul_op    = { "*" | "/" }
+atom = { number | ident | "(" ~ math_expr ~ ")" }
 expr         = _{ input_call | string | number | ident }
 
 string       = @{ "\"" ~ (!"\"" ~ ANY)* ~ "\"" }

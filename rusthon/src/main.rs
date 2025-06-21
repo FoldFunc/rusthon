@@ -1,4 +1,3 @@
-use input_macro_fold_func::input;
 use pest::Parser;
 use pest::iterators::Pair;
 use pest_derive::Parser;
@@ -12,6 +11,7 @@ struct PyParser;
 
 #[derive(Debug)]
 pub enum Statement {
+    MathAssigment(String, MathStmt),
     Assignment(String, Expr),
     Print(Expr),
     Printf(Vec<FormatString>),
@@ -24,7 +24,10 @@ pub enum Expr {
     Num(i64),
     Input(Box<Expr>), // Represents input(...)
 }
-
+#[derive(Debug)]
+pub enum MathStmt {
+    MathStmt(String),
+}
 #[derive(Debug)]
 pub enum FormatString {
     Interpolation(String),
@@ -33,6 +36,14 @@ pub enum FormatString {
 
 fn parse_statement(pair: Pair<Rule>) -> Statement {
     match pair.as_rule() {
+        Rule::assigment_math => {
+            let mut inner = pair.into_inner();
+            let ident = inner.next().unwrap().as_str().to_string();
+            let expr = parse_math_expr(inner.next().unwrap());
+            println!("ident: {:?}", ident);
+            println!("expr: {:?}", expr);
+            Statement::MathAssigment(ident, expr)
+        }
         Rule::assignment => {
             let mut inner = pair.into_inner();
             let ident = inner.next().unwrap().as_str().to_string();
@@ -68,12 +79,27 @@ fn parse_statement(pair: Pair<Rule>) -> Statement {
         _ => panic!("Unexpected rule in parser: {:?}", pair.as_rule()),
     }
 }
+fn parse_math_expr(pair: Pair<Rule>) -> MathStmt {
+    match pair.as_rule() {
+        Rule::math_stmt => {
+            let s = pair.as_str();
+            println!("");
+            println!("s: {}", s);
+            let trimmed = &s[0..s.len() - 0];
+            println!("");
+            println!("trimmed: {:?}", trimmed);
+            return MathStmt::MathStmt(trimmed.to_string());
+        }
+        _ => unreachable!("Invalid"),
+    };
+}
 
 fn parse_expr(pair: Pair<Rule>) -> Expr {
     match pair.as_rule() {
         Rule::string => {
             let s = pair.as_str();
             let trimmed = &s[1..s.len() - 1];
+
             Expr::Str(trimmed.to_string())
         }
         Rule::number => Expr::Num(pair.as_str().parse().unwrap()),
@@ -102,7 +128,7 @@ fn parse_program(source: &str) -> (Vec<Statement>, bool) {
         .filter_map(|pair| match pair.as_rule() {
             Rule::statement => {
                 let inner = pair.into_inner().next().unwrap();
-                // Check if this statement or its expr uses input_call
+                println!("inner: {:?}", inner);
                 let stmt = parse_statement(inner);
                 if statement_has_input(&stmt) {
                     has_input = true;
@@ -118,8 +144,11 @@ fn parse_program(source: &str) -> (Vec<Statement>, bool) {
 
 fn generate_rust(stmt: &Statement) -> String {
     match stmt {
+        Statement::MathAssigment(name, expr) => {
+            format!("{} = {};", name, generate_math_expr(expr))
+        }
         Statement::Assignment(name, expr) => {
-            format!("let {} = {};", name, generate_expr(expr))
+            format!("let mut {} = {};", name, generate_expr(expr))
         }
 
         Statement::Print(expr) => match expr {
@@ -152,7 +181,11 @@ fn generate_rust(stmt: &Statement) -> String {
         }
     }
 }
-
+fn generate_math_expr(expr: &MathStmt) -> String {
+    match expr {
+        MathStmt::MathStmt(s) => format!("{}", s),
+    }
+}
 fn generate_expr(expr: &Expr) -> String {
     match expr {
         Expr::Str(s) => format!("\"{}\"", s),
@@ -197,6 +230,7 @@ fn statement_has_input(stmt: &Statement) -> bool {
             FormatString::Interpolation(_expr_str) => false,
             FormatString::TextChunk(_) => false,
         }),
+        Statement::MathAssigment(_, _) => false,
     }
 }
 
