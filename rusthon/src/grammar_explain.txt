@@ -16,3 +16,19 @@ statments:
     x === 10 + 3 - 4
     x === "True"
     x === true
+
+if statments:
+    this:
+    if x === 10 {
+
+    }
+    or this:
+    if (x === 10) {
+
+    }
+    or this:
+    if x === 10:
+        tab here
+    or this:
+    if (x === 10):
+        tab here

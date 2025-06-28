@@ -16,6 +16,7 @@ pub enum Statement {
     Print(Expr),
     Printf(Vec<FormatString>),
     StatementIf(String, AllExpr),
+    IfAll(String, AllExpr, Vec<Statement>),
 }
 
 #[derive(Debug)]
@@ -89,15 +90,30 @@ fn parse_statement(pair: Pair<Rule>) -> Statement {
             let expr = parse_all_expr(inner.next().unwrap());
             Statement::StatementIf(ident, expr)
         }
+        Rule::if_all => {
+            let mut inner = pair.into_inner();
+            // First child is statement_if
+            let stmt_if_pair = inner.next().unwrap();
+            let mut stmt_if_inner = stmt_if_pair.into_inner();
+            // Unpack condition: ident and expression
+            let ident = stmt_if_inner.next().unwrap().as_str().to_string();
+            let expr = parse_all_expr(stmt_if_inner.next().unwrap());
+            // Remaining inner pairs are the block statements
+            let block_statements: Vec<Statement> = inner
+                .filter(|p| p.as_rule() == Rule::statement)
+                .map(|p| parse_statement(p.into_inner().next().unwrap()))
+                .collect();
+            Statement::IfAll(ident, expr, block_statements)
+        }
         _ => panic!("Unexpected rule in parser: {:?}", pair.as_rule()),
     }
 }
+
 fn parse_all_expr(pair: Pair<Rule>) -> AllExpr {
     match pair.as_rule() {
         Rule::math_stmt => {
             let s = pair.as_str();
-            let trimmed = s; // no need to take a reference unless modifying
-            AllExpr::MathStmt(MathStmt::MathStmt(trimmed.to_string()))
+            AllExpr::MathStmt(MathStmt::MathStmt(s.to_string()))
         }
         Rule::string => {
             let s = pair.as_str();
@@ -112,19 +128,15 @@ fn parse_all_expr(pair: Pair<Rule>) -> AllExpr {
         _ => panic!("Invalid expr"),
     }
 }
+
 fn parse_math_expr(pair: Pair<Rule>) -> MathStmt {
     match pair.as_rule() {
         Rule::math_stmt => {
             let s = pair.as_str();
-            println!("");
-            println!("s: {}", s);
-            let trimmed = &s[0..s.len() - 0];
-            println!("");
-            println!("trimmed: {:?}", trimmed);
-            return MathStmt::MathStmt(trimmed.to_string());
+            MathStmt::MathStmt(s.to_string())
         }
         _ => unreachable!("Invalid"),
-    };
+    }
 }
 
 fn parse_expr(pair: Pair<Rule>) -> Expr {
@@ -213,13 +225,26 @@ fn generate_rust(stmt: &Statement) -> String {
             }
         }
         Statement::StatementIf(name, exprall) => {
-            format!("{} == {}", name, generate_all_expr(exprall))
+            let mut res1 = format!("{} == {}", name, generate_all_expr(exprall));
+            res1.push_str(";");
+            res1
+        }
+        Statement::IfAll(name, exprall, body) => {
+            let mut result = format!("if {} == {} {{\n", name, generate_all_expr(exprall));
+            for stmt in body {
+                result.push_str("    ");
+                result.push_str(&generate_rust(stmt));
+                result.push_str("\n");
+            }
+            result.push_str("}");
+            result
         }
     }
 }
+
 fn generate_all_expr(expr: &AllExpr) -> String {
     match expr {
-        AllExpr::MathStmt(MathStmt::MathStmt(s)) => format!("{}", s),
+        AllExpr::MathStmt(MathStmt::MathStmt(s)) => s.clone(),
         AllExpr::Expr(Expr::Str(s)) => format!("\"{}\"", s),
         AllExpr::Expr(Expr::Num(n)) => n.to_string(),
         AllExpr::Expr(Expr::Var(v)) => v.clone(),
@@ -227,20 +252,20 @@ fn generate_all_expr(expr: &AllExpr) -> String {
         _ => panic!("Invalid expr"),
     }
 }
+
 fn generate_math_expr(expr: &MathStmt) -> String {
     match expr {
-        MathStmt::MathStmt(s) => format!("{}", s),
+        MathStmt::MathStmt(s) => s.clone(),
     }
 }
+
 fn generate_expr(expr: &Expr) -> String {
     match expr {
         Expr::Str(s) => format!("\"{}\"", s),
         Expr::Num(n) => n.to_string(),
         Expr::Var(v) => v.clone(),
-        Expr::Input(prompt_expr) => {
-            format!("input!({})", generate_expr(prompt_expr))
-        }
-        Expr::Bool(tf) => format!("{}", tf),
+        Expr::Input(prompt_expr) => format!("input!({})", generate_expr(prompt_expr)),
+        Expr::Bool(tf) => tf.to_string(),
     }
 }
 
@@ -257,18 +282,14 @@ fn get_file_name() -> String {
         process::exit(1);
     })
 }
+
 fn prepend_to_file(path: &str, text: &str) -> std::io::Result<()> {
-    // Read existing content
     let original = fs::read_to_string(path)?;
-
-    // Combine new text + old content
     let new_content = format!("{}{}", text, original);
-
-    // Write it back, overwriting the file
     fs::write(path, new_content)?;
-
     Ok(())
 }
+
 fn statement_has_input(stmt: &Statement) -> bool {
     match stmt {
         Statement::Assignment(_, expr) => expr_has_input(expr),
@@ -279,14 +300,12 @@ fn statement_has_input(stmt: &Statement) -> bool {
         }),
         Statement::MathAssigment(_, _) => false,
         Statement::StatementIf(_, _) => false,
+        Statement::IfAll(_, _, _) => false,
     }
 }
 
 fn expr_has_input(expr: &Expr) -> bool {
-    match expr {
-        Expr::Input(_) => true,
-        _ => false,
-    }
+    matches!(expr, Expr::Input(_))
 }
 
 fn main() {
