@@ -32,3 +32,13 @@ if statments:
     or this:
     if (x === 10):
         tab here
+
+loops:
+    for (i, 10) { -- (local varible, max_counter)
+        print("Hello")
+    }
+    to this rust:
+    for i in 0..10 {
+        println!("Hello");
+    }
+

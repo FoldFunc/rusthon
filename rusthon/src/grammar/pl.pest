@@ -1,15 +1,17 @@
 WHITESPACE   = _{ " " | "\t" | NEWLINE }
 NEWLINE      = _{ "\n" | "\r\n" }
+SOI_WHITESPACE = _{ " " | "\t" }
+INDENT        = _{ SOI_WHITESPACE* }
 
 code         = { SOI ~ statement* ~ EOI }
 statement    = { assigment_math | assignment | print | printf | if_all | statement_if }
 
-if_all       = { "if" ~ "(" ~ statement_if ~ ")" ~ "{" ~ NEWLINE* ~ statement* ~ NEWLINE* ~ "}" }
-statement_if = { ident ~ "===" ~ math_expr | expr }
-assigment_math = { ident ~ "==" ~ math_expr }
-assignment   = { ident ~ "=" ~ expr }
-print        = { "print" ~ "(" ~ expr ~ ")" }
-printf       = { "print" ~ "(" ~ format_string ~ ")" }
+if_all       = { INDENT ~ "if" ~ "(" ~ statement_if ~ ")" ~ "{" ~ NEWLINE* ~ statement* ~ NEWLINE* ~ "}" }
+statement_if = { INDENT ~ ident ~ "===" ~ expr | math_expr }
+assigment_math = { INDENT ~ ident ~ "==" ~ math_expr }
+assignment   = { INDENT ~ident ~ "=" ~ expr }
+print        = { INDENT ~"print" ~ "(" ~ expr ~ ")" }
+printf       = { INDENT ~"print" ~ "(" ~ format_string ~ ")" }
 
 input_call   = { input ~ "(" ~ string ~ ")" }
 input        = { "input" }

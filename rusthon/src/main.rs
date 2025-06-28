@@ -190,7 +190,12 @@ fn parse_program(source: &str) -> (Vec<Statement>, bool) {
 fn generate_rust(stmt: &Statement) -> String {
     match stmt {
         Statement::MathAssigment(name, expr) => {
-            format!("{} = {};", name, generate_math_expr(expr))
+            let mut part1 = format!("{} = {}", name, generate_math_expr(expr));
+            for _i in 0..5 {
+                part1.pop();
+            }
+            part1.push_str(";");
+            part1
         }
         Statement::Assignment(name, expr) => {
             format!("let mut {} = {};", name, generate_expr(expr))
@@ -226,6 +231,7 @@ fn generate_rust(stmt: &Statement) -> String {
         }
         Statement::StatementIf(name, exprall) => {
             let mut res1 = format!("{} == {}", name, generate_all_expr(exprall));
+            res1.pop();
             res1.push_str(";");
             res1
         }
