@@ -6,7 +6,7 @@ use std::fs;
 use std::process;
 
 #[derive(Parser)]
-#[grammar = "grammar/py.pest"]
+#[grammar = "grammar/pl.pest"]
 struct PyParser;
 
 #[derive(Debug)]
@@ -15,14 +15,21 @@ pub enum Statement {
     Assignment(String, Expr),
     Print(Expr),
     Printf(Vec<FormatString>),
+    StatementIf(String, AllExpr),
 }
 
+#[derive(Debug)]
+pub enum AllExpr {
+    Expr(Expr),
+    MathStmt(MathStmt),
+}
 #[derive(Debug)]
 pub enum Expr {
     Var(String),
     Str(String),
     Num(i64),
     Input(Box<Expr>), // Represents input(...)
+    Bool(bool),
 }
 #[derive(Debug)]
 pub enum MathStmt {
@@ -76,7 +83,33 @@ fn parse_statement(pair: Pair<Rule>) -> Statement {
 
             Statement::Printf(parts)
         }
+        Rule::statement_if => {
+            let mut inner = pair.into_inner();
+            let ident = inner.next().unwrap().as_str().to_string();
+            let expr = parse_all_expr(inner.next().unwrap());
+            Statement::StatementIf(ident, expr)
+        }
         _ => panic!("Unexpected rule in parser: {:?}", pair.as_rule()),
+    }
+}
+fn parse_all_expr(pair: Pair<Rule>) -> AllExpr {
+    match pair.as_rule() {
+        Rule::math_stmt => {
+            let s = pair.as_str();
+            let trimmed = s; // no need to take a reference unless modifying
+            AllExpr::MathStmt(MathStmt::MathStmt(trimmed.to_string()))
+        }
+        Rule::string => {
+            let s = pair.as_str();
+            let trimmed = &s[1..s.len() - 1];
+            AllExpr::Expr(Expr::Str(trimmed.to_string()))
+        }
+        Rule::number => {
+            let num = pair.as_str().parse().unwrap();
+            AllExpr::Expr(Expr::Num(num))
+        }
+        Rule::ident => AllExpr::Expr(Expr::Var(pair.as_str().to_string())),
+        _ => panic!("Invalid expr"),
     }
 }
 fn parse_math_expr(pair: Pair<Rule>) -> MathStmt {
@@ -179,6 +212,19 @@ fn generate_rust(stmt: &Statement) -> String {
                 format!("println!(\"{}\", {});", format_string, args.join(", "))
             }
         }
+        Statement::StatementIf(name, exprall) => {
+            format!("{} == {}", name, generate_all_expr(exprall))
+        }
+    }
+}
+fn generate_all_expr(expr: &AllExpr) -> String {
+    match expr {
+        AllExpr::MathStmt(MathStmt::MathStmt(s)) => format!("{}", s),
+        AllExpr::Expr(Expr::Str(s)) => format!("\"{}\"", s),
+        AllExpr::Expr(Expr::Num(n)) => n.to_string(),
+        AllExpr::Expr(Expr::Var(v)) => v.clone(),
+        AllExpr::Expr(Expr::Bool(b)) => b.to_string(),
+        _ => panic!("Invalid expr"),
     }
 }
 fn generate_math_expr(expr: &MathStmt) -> String {
@@ -194,13 +240,14 @@ fn generate_expr(expr: &Expr) -> String {
         Expr::Input(prompt_expr) => {
             format!("input!({})", generate_expr(prompt_expr))
         }
+        Expr::Bool(tf) => format!("{}", tf),
     }
 }
 
 fn get_file_name() -> String {
     let args: Vec<String> = env::args().collect();
     if args.len() != 2 {
-        eprintln!("Usage: {} <path/to/file.py>", args[0]);
+        eprintln!("Usage: {} <path/to/file.pl>", args[0]);
         process::exit(1);
     }
     let file_path = &args[1];
@@ -231,6 +278,7 @@ fn statement_has_input(stmt: &Statement) -> bool {
             FormatString::TextChunk(_) => false,
         }),
         Statement::MathAssigment(_, _) => false,
+        Statement::StatementIf(_, _) => false,
     }
 }
 

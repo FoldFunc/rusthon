@@ -2,8 +2,9 @@ WHITESPACE   = _{ " " | "\t" | NEWLINE }
 NEWLINE      = _{ "\n" | "\r\n" }
 
 code         = { SOI ~ statement* ~ EOI }
-statement    = { assigment_math | assignment | print | printf }
+statement    = { assigment_math | assignment | print | printf | statement_if }
 
+statement_if    = { ident ~ "===" ~ math_expr | expr }
 assigment_math = { ident ~ "==" ~ math_expr }
 assignment   = { ident ~ "=" ~ expr }
 print        = { "print" ~ "(" ~ expr ~ ")" }
@@ -25,8 +26,9 @@ mul_div = {atom ~ (mul_op ~ atom)* }
 add_op    = { "+" | "-" }
 mul_op    = { "*" | "/" }
 atom = { number | ident | "(" ~ math_expr ~ ")" }
-expr         = _{ input_call | string | number | ident }
+expr         = _{ input_call | string | number | ident | bool }
 
+bool         = @{ "true" | "false" }
 string       = @{ "\"" ~ (!"\"" ~ ANY)* ~ "\"" }
 number       = @{ ASCII_DIGIT+ }
 

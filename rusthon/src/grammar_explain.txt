@@ -1,0 +1,18 @@
+Console output:
+    print("")
+
+Formated console output:
+    print(f"")
+
+assigment:
+    x = 10
+math assigment:
+    x == 10 + x
+input calls:
+    x = input("Enter name: ")
+
+statments:
+    x === 10 -- returns true or false.
+    x === 10 + 3 - 4
+    x === "True"
+    x === true
