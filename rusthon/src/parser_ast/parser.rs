@@ -64,7 +64,23 @@ impl Parser {
         }
     }
 }
-
+impl Stmt {
+    pub fn codegen(&self) -> String {
+        match self {
+            Stmt::Return(expr) => {
+                let val = expr.codegen();
+                format!("{}\nmov rax, 60\nsyscall", val)
+            }
+        }
+    }
+}
+impl Expr {
+    pub fn codegen(&self) -> String {
+        match self {
+            Expr::Number(n) => format!("mov rdi, {}", n),
+        }
+    }
+}
 pub fn parse(tokens: &Vec<Tokens>) -> Result<Stmt, Box<dyn Error>> {
     let mut parser = Parser::new(tokens.to_vec());
     let stmt = parser.parse_stmt()?;
