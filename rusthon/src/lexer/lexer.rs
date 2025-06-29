@@ -1,7 +1,9 @@
-#[derive(Debug, PartialEq)]
+use std::error::Error;
+#[derive(Debug, PartialEq, Clone)]
 pub enum Tokens {
     Ident(String),
     Number(i64),
+    SemiColon,
     EOF,
 }
 pub struct Lexer {
@@ -26,13 +28,15 @@ impl Lexer {
     }
     pub fn next_token(&mut self) -> Tokens {
         self.skip_white_space();
-        match self.advance {
+        match self.advance() {
             Some(ch) if ch.is_ascii_digit() => self.lex_number(ch),
             Some(ch) if ch.is_ascii_alphabetic() => self.lex_ident(ch),
+            Some(';') => Tokens::SemiColon,
             None => Tokens::EOF,
+            Some(_) => panic!("Unexpected token"),
         }
     }
-    pub fn skip_white_space() {
+    pub fn skip_white_space(&mut self) {
         while let Some(ch) = self.peek() {
             if ch.is_whitespace() {
                 self.advance();
@@ -65,4 +69,19 @@ impl Lexer {
         }
         Tokens::Ident(ident.parse().unwrap())
     }
+}
+pub fn tokenize(file_contents: String) -> Result<Vec<Tokens>, Box<dyn Error>> {
+    let mut tokens = Vec::new();
+    let mut lexer = Lexer::new(file_contents);
+    loop {
+        let token = lexer.next_token();
+        tokens.push(token.clone());
+        if token.clone() == Tokens::EOF {
+            break;
+        }
+    }
+    if false {
+        return Err("How the hell".into());
+    }
+    Ok(tokens)
 }
