@@ -161,23 +161,17 @@ impl Expr {
                 asm.push(format!("    mov rax, {}", n));
             }
             Expr::Binary { left, op, right } => {
-                // Evaluate left operand
                 left.codegen_into(asm);
                 asm.push("    push rax".into());
 
-                // Evaluate right operand
                 right.codegen_into(asm);
                 asm.push("    pop rbx".into());
 
                 match op {
                     BinaryOp::Plus => {
-                        // rax = right, rbx = left -> do rax = rbx + rax
-                        asm.push("    add rax, rbx".into()); // reverse order for addition
+                        asm.push("    add rax, rbx".into());
                     }
                     BinaryOp::Minus => {
-                        // subtraction: want rax = left - right
-                        // rax = right, rbx = left, so:
-                        // swap: mov rcx, rax; mov rax, rbx; sub rax, rcx
                         asm.push("    mov rcx, rax".into());
                         asm.push("    mov rax, rbx".into());
                         asm.push("    sub rax, rcx".into());
@@ -207,7 +201,7 @@ impl Expr {
     }
 }
 impl Stmt {
-    pub fn codegen(&self) -> String {
+    pub fn codegen(&self, stack_position: i32) -> String {
         let mut asm = Vec::new();
         match self {
             Stmt::Return(expr) => {
@@ -219,7 +213,7 @@ impl Stmt {
             Stmt::VarDecl { name, value } => {
                 value.codegen_into(&mut asm);
                 asm.push(format!("    ; store var {} on stack ", name));
-                asm.push("    push rax".into());
+                asm.push(format!("    mov [rsp - {}], rax", stack_position));
             }
         }
         asm.join("\n")

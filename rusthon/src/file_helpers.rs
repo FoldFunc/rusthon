@@ -28,20 +28,25 @@ pub fn give_file_content(path_to_file: String) -> Result<String, Box<dyn Error>>
     }
 }
 pub fn gen_begging() -> bool {
-    let asm_start = format!("global _start\nsection .text\n_start:\n");
+    let asm_start = format!("global _start\nsection .text\n_start:\n    sub rsp, 64\n");
     match fs::write("out.asm", asm_start) {
         Ok(_) => return true,
         Err(_) => return false,
     }
 }
 pub fn gen_asm(ast: &Vec<Stmt>) -> Result<bool, Box<dyn Error>> {
-    let asm_gen = ast
-        .iter()
-        .map(|stmt| stmt.codegen())
-        .collect::<Vec<String>>()
-        .join("\n");
-
+    let mut stack_pos = 8;
+    let mut asm_gen = Vec::new();
+    for element in ast {
+        println!("element: {:?}", element);
+        let stmt = element.codegen(stack_pos);
+        asm_gen.push(stmt);
+        asm_gen.join("\n");
+        if let Stmt::VarDecl { .. } = element {
+            stack_pos += 8;
+        }
+    }
     let mut file = OpenOptions::new().append(true).open("out.asm")?;
-    writeln!(file, "{}", asm_gen)?;
+    writeln!(file, "{}", asm_gen.join("\n"))?;
     Ok(true)
 }
