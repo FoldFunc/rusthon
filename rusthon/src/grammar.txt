@@ -1,0 +1,4 @@
+returns:
+    return 0;
+binary expresions:
+    return 5 + 4 - (3 * 2);

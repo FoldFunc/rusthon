@@ -1,2 +1,2 @@
-return 10;
+return (3 * 4) / 3;
 

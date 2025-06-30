@@ -3,6 +3,13 @@ use std::error::Error;
 pub enum Tokens {
     Ident(String),
     Number(i64),
+    Return,
+    Plus,
+    Minus,
+    Star,
+    Slash,
+    LParen,
+    RParen,
     SemiColon,
     EOF,
 }
@@ -32,6 +39,12 @@ impl Lexer {
             Some(ch) if ch.is_ascii_digit() => self.lex_number(ch),
             Some(ch) if ch.is_ascii_alphabetic() => self.lex_ident(ch),
             Some(';') => Tokens::SemiColon,
+            Some('+') => Tokens::Plus,
+            Some('-') => Tokens::Minus,
+            Some('*') => Tokens::Star,
+            Some('/') => Tokens::Slash,
+            Some('(') => Tokens::LParen,
+            Some(')') => Tokens::RParen,
             None => Tokens::EOF,
             Some(_) => panic!("Unexpected token"),
         }
@@ -66,6 +79,9 @@ impl Lexer {
             } else {
                 break;
             }
+        }
+        if ident == "return" {
+            return Tokens::Return;
         }
         Tokens::Ident(ident.parse().unwrap())
     }
