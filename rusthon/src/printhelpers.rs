@@ -11,6 +11,6 @@ pub fn print_tokens(tokens: &Vec<lexer::lexer::Tokens>) {
         println!("token: {:?}", token);
     }
 }
-pub fn print_ast(ast: &Stmt) {
+pub fn print_ast(ast: &Vec<Stmt>) {
     println!("ast: \n{:?}", ast);
 }

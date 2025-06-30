@@ -4,6 +4,8 @@ pub enum Tokens {
     Ident(String),
     Number(i64),
     Return,
+    Var,
+    Eq,
     Plus,
     Minus,
     Star,
@@ -37,7 +39,7 @@ impl Lexer {
         self.skip_white_space();
         match self.advance() {
             Some(ch) if ch.is_ascii_digit() => self.lex_number(ch),
-            Some(ch) if ch.is_ascii_alphabetic() => self.lex_ident(ch),
+            Some(ch) if ch.is_alphanumeric() => self.lex_ident(ch),
             Some(';') => Tokens::SemiColon,
             Some('+') => Tokens::Plus,
             Some('-') => Tokens::Minus,
@@ -45,6 +47,7 @@ impl Lexer {
             Some('/') => Tokens::Slash,
             Some('(') => Tokens::LParen,
             Some(')') => Tokens::RParen,
+            Some('=') => Tokens::Eq,
             None => Tokens::EOF,
             Some(_) => panic!("Unexpected token"),
         }
@@ -82,6 +85,9 @@ impl Lexer {
         }
         if ident == "return" {
             return Tokens::Return;
+        }
+        if ident == "var" {
+            return Tokens::Var;
         }
         Tokens::Ident(ident.parse().unwrap())
     }

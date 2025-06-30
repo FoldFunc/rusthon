@@ -1,18 +1,10 @@
 global _start
 section .text
 _start:
-    mov rax, 3
+    mov rax, 10
+    ; store var x on stack 
     push rax
-    mov rax, 4
-    pop rbx
-    xchg rax, rbx
-    imul rax, rbx
-    push rax
-    mov rax, 3
-    pop rbx
-    xchg rax, rbx
-    mov rdx, 0
-    div rbx
+    mov rax, 90
     mov rdi, rax
     mov rax, 60
     syscall

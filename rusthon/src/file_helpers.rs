@@ -34,9 +34,14 @@ pub fn gen_begging() -> bool {
         Err(_) => return false,
     }
 }
-pub fn gen_asm(ast: &Stmt) -> Result<bool, Box<dyn Error>> {
-    let asm_gen = format!("{}", ast.codegen());
+pub fn gen_asm(ast: &Vec<Stmt>) -> Result<bool, Box<dyn Error>> {
+    let asm_gen = ast
+        .iter()
+        .map(|stmt| stmt.codegen())
+        .collect::<Vec<String>>()
+        .join("\n");
+
     let mut file = OpenOptions::new().append(true).open("out.asm")?;
-    let _ = writeln!(file, "{}", asm_gen);
+    writeln!(file, "{}", asm_gen)?;
     Ok(true)
 }

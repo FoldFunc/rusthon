@@ -2,3 +2,7 @@ returns:
     return 0;
 binary expresions:
     return 5 + 4 - (3 * 2);
+variable decleration:
+    var x: int = 10;
+variable into return:
+    return x;
