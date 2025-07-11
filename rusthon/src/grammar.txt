@@ -3,6 +3,8 @@ returns:
 binary expresions:
     return 5 + 4 - (3 * 2);
 variable decleration:
-    var x: int = 10;
+    var x = 10;
 variable into return:
     return x;
+
+

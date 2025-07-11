@@ -3,12 +3,8 @@ section .text
 _start:
     ; … your prologue here (e.g. sub rsp…)
     mov rax, 10
-    push rax
-    mov rax, 10
-    pop rbx
-    add rax, rbx
-    ; store var: x in global memory
-    mov [x], rax
+    ; store var: y in global memory
+    mov [y], rax
     xor rax, rax
     mov rax, [x]
     mov rdi, rax
@@ -16,4 +12,4 @@ _start:
     syscall
 
 section .bss
-x:    resq 1
+y:    resq 1
