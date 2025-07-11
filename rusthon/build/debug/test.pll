@@ -1,4 +1,3 @@
-var x = 10;
-var y = 11;
-return 90;
+var x = 10 + 10;
+return x;
 

@@ -35,18 +35,37 @@ pub fn gen_begging() -> bool {
     }
 }
 pub fn gen_asm(ast: &Vec<Stmt>) -> Result<bool, Box<dyn Error>> {
-    let mut stack_pos = 8;
-    let mut asm_gen = Vec::new();
-    for element in ast {
-        println!("element: {:?}", element);
-        let stmt = element.codegen(stack_pos);
-        asm_gen.push(stmt);
-        asm_gen.join("\n");
-        if let Stmt::VarDecl { .. } = element {
-            stack_pos += 8;
+    // collect all var names
+    let mut globals = Vec::new();
+
+    // generate .text
+    let mut asm_lines = Vec::new();
+    for stmt in ast {
+        if let Stmt::VarDecl { name, .. } = stmt {
+            globals.push(name.clone());
+        }
+        asm_lines.push(stmt.codegen());
+    }
+
+    // write prologue + code
+    let mut file = OpenOptions::new().write(true).create(true).open("out.asm")?;
+    writeln!(file, "global _start")?;
+    writeln!(file, "section .text")?;
+    writeln!(file, "_start:")?;
+    writeln!(file, "    ; … your prologue here (e.g. sub rsp…)")?;
+    for line in asm_lines {
+        writeln!(file, "{}", line)?;
+    }
+
+    // emit .bss globals
+    if !globals.is_empty() {
+        writeln!(file, "\nsection .bss")?;
+        for name in globals {
+            // reserve 8 bytes for each 64‑bit var
+            writeln!(file, "{}:    resq 1", name)?;
         }
     }
-    let mut file = OpenOptions::new().append(true).open("out.asm")?;
-    writeln!(file, "{}", asm_gen.join("\n"))?;
+
     Ok(true)
 }
+

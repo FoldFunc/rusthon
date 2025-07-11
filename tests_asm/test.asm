@@ -1,13 +1,15 @@
-global main
+global _start
+
+section .bss
+x: resq 1        ; reserve 8 bytes for x (64-bit)
+
 section .text
-main:
-    sub rsp, 64
-
+_start:
     mov rax, 10
-    mov [rsp - 8], rax
+    mov [x], rax ; store 10 in x
 
-    mov rbx, [rsp - 8]
+    ; simulate "return 69"
+    mov rdi, [x]
     mov rax, 60
-    xor rdi, rdi
     syscall
 

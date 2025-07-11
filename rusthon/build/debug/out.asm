@@ -1,14 +1,19 @@
 global _start
 section .text
 _start:
-    sub rsp, 64
+    ; … your prologue here (e.g. sub rsp…)
     mov rax, 10
-    ; store var x on stack 
-    mov [rsp - 8], rax
-    mov rax, 11
-    ; store var y on stack 
-    mov [rsp - 16], rax
-    mov rax, 90
+    push rax
+    mov rax, 10
+    pop rbx
+    add rax, rbx
+    ; store var: x in global memory
+    mov [x], rax
+    xor rax, rax
+    mov rax, [x]
     mov rdi, rax
     mov rax, 60
     syscall
+
+section .bss
+x:    resq 1
