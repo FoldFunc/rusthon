@@ -2,6 +2,7 @@ mod file_helpers;
 mod lexer;
 mod parser_ast;
 mod printhelpers;
+mod errorer;
 use lexer::lexer::Tokens;
 use std::error::Error;
 fn main() -> Result<(), Box<dyn Error>> {
@@ -13,7 +14,8 @@ fn main() -> Result<(), Box<dyn Error>> {
     let tokens: Vec<Tokens> = lexer::lexer::tokenize(file_contents)?;
     let _ = printhelpers::print_tokens(&tokens);
     let ast = parser_ast::parser::parse(&tokens);
-    let _ = printhelpers::print_ast(ast.as_ref().unwrap());
+    let _ = printhelpers::print_ast(&ast.as_ref().unwrap());
+    let _ = errorer::errorer::find_errors(&ast.as_ref().unwrap());
     let _ = file_helpers::gen_begging();
     let _ = file_helpers::gen_asm(&ast.unwrap());
     Ok(())
