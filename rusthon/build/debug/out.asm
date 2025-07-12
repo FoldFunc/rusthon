@@ -6,11 +6,16 @@ _start:
     ; store var: x in global memory
     mov [x], rax
     xor rax, rax
-    mov rax, [y]
+    mov rax, 3
+    push rax
+    mov rax, [x]
     push rax
     mov rax, 2
     pop rbx
     add rax, rbx
+    pop rbx
+    xchg rax, rbx
+    imul rax, rbx
    ; re declare var: x in global memory
    mov [x], rax
    xor rax, rax

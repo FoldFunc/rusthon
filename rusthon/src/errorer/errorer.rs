@@ -1,5 +1,6 @@
 use crate::parser_ast::parser::{Stmt, Expr};
 use std::{collections::HashMap, error::{self, Error}};
+
 enum ErrorType {
     Error000,
     Error001,
@@ -9,6 +10,7 @@ enum ErrorType {
     Error005,
     Error006,
 }
+
 fn store_var_names(ast: &[Stmt]) -> HashMap<&String, &Expr> {
     let mut vars = HashMap::new();
 
@@ -46,56 +48,83 @@ fn print_vars(vars: &HashMap<&String, &Expr>) {
         }
     }
 }
+
 fn print_commands(commands: &Vec<&Stmt>) {
     for stmt in commands {
         match stmt {
             Stmt::Return(expr) => match expr {
                 Expr::Number(n) => println!("Return statement with value: {}", n),
                 Expr::Ident(s) => println!("Return statement with var: {}", s),
-                Expr::Binary { left, op, right } => println!("This abomination: {:?}\t{:?}\t{:?}", left, op, right),
+                Expr::Binary { left, op, right } => {
+                    println!("This abomination: {:?}\t{:?}\t{:?}", left, op, right)
+                }
             },
             _ => println!("Unhandled stmt"),
         }
     }
 }
+
+fn validate_expr(expr: &Expr, vars: &HashMap<&String, &Expr>, is_return: bool) -> Option<ErrorType> {
+    match expr {
+        Expr::Number(n) => {
+            if is_return && (*n < 0 || *n > 255) {
+                return Some(ErrorType::Error001);
+            }
+        }
+        Expr::Ident(s) => {
+            let found = vars.keys().any(|k| *k == s);
+            if !found {
+                return Some(if is_return { ErrorType::Error002 } else { ErrorType::Error005 });
+            }
+        }
+        Expr::Binary { left, op: _, right } => {
+            if let Some(e) = validate_expr(left, vars, is_return) {
+                return Some(e);
+            }
+            if let Some(e) = validate_expr(right, vars, is_return) {
+                return Some(e);
+            }
+        }
+        _ => {}
+    }
+    None
+}
+
 fn valid_return_variable(vars: &HashMap<&String, &Expr>, commands: &Vec<&Stmt>) -> Vec<ErrorType> {
     let mut errors: Vec<ErrorType> = Vec::new();
     for stmt in commands {
-        match stmt {
-            Stmt::Return(expr) => match expr {
-                Expr::Number(n) => {
-                    if *n > 255 || *n < 0 {
-                        errors.push(ErrorType::Error001);
-                    }
-                }
-                Expr::Ident(s) => {
-                    let mut ok = false;
-                    for (k, _v) in vars.clone() {
-                        if s.to_string() == k.to_string() {
-                            ok = true;
-                        }
-                    }
-                    if !ok {
-                        errors.push(ErrorType::Error002);
-                    }
-                }
-                Expr::Binary { left: _, op: _, right: _ } => {
-                        errors.push(ErrorType::Error003);
-                }
+        if let Stmt::Return(expr) = stmt {
+            if let Some(e) = validate_expr(expr, vars, true) {
+                errors.push(e);
             }
-            _ => println!("No need to wory bout that one mate"),
         }
     }
-    if errors.len() == 0 {
+    if errors.is_empty() {
         errors.push(ErrorType::Error000);
     }
-    return errors;
+    errors
 }
+
+fn valid_redecler_variable(vars: &HashMap<&String, &Expr>, commands: &Vec<&Stmt>) -> Vec<ErrorType> {
+    let mut errors: Vec<ErrorType> = Vec::new();
+    for stmt in commands {
+        if let Stmt::VarRedecl { value, .. } = stmt {
+            if let Some(e) = validate_expr(value, vars, false) {
+                errors.push(e);
+            }
+        }
+    }
+    if errors.is_empty() {
+        errors.push(ErrorType::Error000);
+    }
+    errors
+}
+
 fn print_errors_return_stmt(errors: &Vec<ErrorType>) {
     for error in errors {
         match error {
             ErrorType::Error001 => {
-                eprintln!("\x1b[31mTo big or to small value of exit code in return statement.\x1b[0m");
+                eprintln!("\x1b[31mToo big or too small value of exit code in return statement.\x1b[0m");
                 std::process::exit(1);
             }
             ErrorType::Error002 => {
@@ -103,7 +132,7 @@ fn print_errors_return_stmt(errors: &Vec<ErrorType>) {
                 std::process::exit(2);
             }
             ErrorType::Error003 => {
-                eprintln!("\x1b[31mFor now imposible to add error handling to this crap.\x1b[0m");
+                eprintln!("\x1b[31mFor now impossible to add error handling to this crap.\x1b[0m");
                 std::process::exit(3);
             }
             ErrorType::Error000 => {
@@ -112,13 +141,13 @@ fn print_errors_return_stmt(errors: &Vec<ErrorType>) {
             _ => println!("No need to worry bout that."),
         }
     }
-
 }
+
 fn print_errors_redcl_stmt(errors: &Vec<ErrorType>) {
     for error in errors {
         match error {
             ErrorType::Error004 => {
-                eprintln!("\x1b[31mTo big or to small value of variable.\x1b[0m");
+                eprintln!("\x1b[31mToo big or too small value of variable.\x1b[0m");
                 std::process::exit(1);
             }
             ErrorType::Error005 => {
@@ -126,7 +155,7 @@ fn print_errors_redcl_stmt(errors: &Vec<ErrorType>) {
                 std::process::exit(2);
             }
             ErrorType::Error006 => {
-                eprintln!("\x1b[31mFor now imposible to add error handling to this crap.\x1b[0m");
+                eprintln!("\x1b[31mFor now impossible to add error handling to this crap.\x1b[0m");
                 std::process::exit(3);
             }
             ErrorType::Error000 => {
@@ -135,42 +164,8 @@ fn print_errors_redcl_stmt(errors: &Vec<ErrorType>) {
             _ => println!("No need to worry bout that."),
         }
     }
-
 }
-fn valid_redecler_variable(vars: &HashMap<&String, &Expr>, commands: &Vec<&Stmt>)-> Vec<ErrorType> {
-    let mut errors: Vec<ErrorType> = Vec::new();
-    for stmt in commands {
-        match stmt {
-            Stmt::VarRedecl { name, value } => match value {
-                Expr::Number(n) => {
-                    if *n > 2^64 || *n < -1*(2^64) {
-                        errors.push(ErrorType::Error004);
-                    }
-                }
-                Expr::Ident(s) => {
-                    let mut ok = false;
-                    for (k, v) in vars.clone() {
-                        if s.to_string() == k.to_string() {
-                            ok = true;
-                        }
-                    }
-                    if !ok {
-                        errors.push(ErrorType::Error005);
-                    }
-                }
-                Expr::Binary { left: _, op: _op, right: _right } => {
-                    errors.push(ErrorType::Error006);
-                }
-            }
-            _ => println!("No need to worry bout that"),
-        }
-    }
-    if errors.len() == 0 {
-        errors.push(ErrorType::Error000);
-    }
-    return errors;
 
-}
 pub fn find_errors(ast: &[Stmt]) {
     println!("----- Errors -----");
     let vars = store_var_names(ast);
@@ -181,6 +176,5 @@ pub fn find_errors(ast: &[Stmt]) {
     let errors_from_var_redecl_wrong = valid_redecler_variable(&vars, &commands);
     let _ = print_errors_return_stmt(&errors_from_return_wrong);
     let _ = print_errors_redcl_stmt(&errors_from_var_redecl_wrong);
-
 }
 
