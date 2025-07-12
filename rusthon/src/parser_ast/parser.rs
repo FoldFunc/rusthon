@@ -23,6 +23,7 @@ pub enum BinaryOp {
 pub enum Stmt {
     Return(Expr),
     VarDecl { name: String, value: Expr },
+    VarRedecl { name: String, value: Expr },
 }
 
 pub struct Parser {
@@ -92,6 +93,15 @@ impl Parser {
                     let value = self.parse_expr(0);
                     assert!(self.eat(&Tokens::SemiColon));
                     Stmt::VarDecl { name, value }
+                }
+                Tokens::Ident(s) => {
+                    let name = &mut s.to_string();
+                    self.advance();
+                    assert!(self.eat(&Tokens::Eq));
+                    let value = self.parse_expr(0);
+                    assert!(self.eat(&Tokens::SemiColon));
+                    Stmt::VarRedecl { name: name.to_string(), value }
+
                 }
                 _ => panic!("Expected statement, found {:?}", self.current()),
             };
@@ -238,8 +248,14 @@ impl Stmt {
             Stmt::VarDecl { name, value } => {
                 value.codegen_into(&mut asm);
                 asm.push(format!("    ; store var: {} in global memory", name));
-                asm.push(format!("    mov [{name}], rax", name = name));
-                asm.push(format!("    xor rax, rax"))
+                asm.push(format!("    mov [{}], rax", name));
+                asm.push(format!("    xor rax, rax"));
+            }
+            Stmt::VarRedecl { name, value } => {
+                value.codegen_into(&mut asm);
+                asm.push(format!("   ; re declare var: {} in global memory", name));
+                asm.push(format!("   mov [{}], rax", name));
+                asm.push(format!("   xor rax, rax"));
             }
         }
         asm.join("\n")
