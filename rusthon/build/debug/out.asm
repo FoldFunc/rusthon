@@ -2,6 +2,10 @@ global _start
 section .text
 _start:
     ; … your prologue here (e.g. sub rsp…)
+    mov byte rax, 'c'
+    ; store var: text in global memory
+    mov [text], rax
+    xor rax, rax
     mov rax, 4
     ; store var: x in global memory
     mov [x], rax
@@ -25,4 +29,5 @@ _start:
     syscall
 
 section .bss
+text:    resq 1
 x:    resq 1
