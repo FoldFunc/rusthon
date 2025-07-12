@@ -61,7 +61,6 @@ pub fn gen_asm(ast: &Vec<Stmt>) -> Result<bool, Box<dyn Error>> {
     if !globals.is_empty() {
         writeln!(file, "\nsection .bss")?;
         for name in globals {
-            // reserve 8 bytes for each 64‑bit var
             writeln!(file, "{}:    resq 1", name)?;
         }
     }

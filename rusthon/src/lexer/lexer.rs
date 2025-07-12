@@ -3,6 +3,7 @@ use std::error::Error;
 pub enum Tokens {
     Ident(String),
     Number(i64),
+    Char(char),
     Return,
     Var,
     Eq,
@@ -13,6 +14,7 @@ pub enum Tokens {
     LParen,
     RParen,
     SemiColon,
+    Apostrophe,
     EOF,
 }
 pub struct Lexer {
@@ -38,20 +40,29 @@ impl Lexer {
     pub fn next_token(&mut self) -> Tokens {
         self.skip_white_space();
         match self.advance() {
-            Some(ch) if ch.is_ascii_digit() => self.lex_number(ch),
-            Some(ch) if ch.is_alphanumeric() => self.lex_ident(ch),
-            Some(';') => Tokens::SemiColon,
-            Some('+') => Tokens::Plus,
-            Some('-') => Tokens::Minus,
-            Some('*') => Tokens::Star,
-            Some('/') => Tokens::Slash,
-            Some('(') => Tokens::LParen,
-            Some(')') => Tokens::RParen,
-            Some('=') => Tokens::Eq,
-            None => Tokens::EOF,
-            Some(_) => panic!("Unexpected token"),
-        }
+        Some(ch) if ch.is_ascii_digit() => self.lex_number(ch),
+        Some(ch) if ch.is_ascii_alphabetic() || ch == '_' => self.lex_ident(ch),
+        Some(';') => Tokens::SemiColon,
+        Some('+') => Tokens::Plus,
+        Some('-') => Tokens::Minus,
+        Some('*') => Tokens::Star,
+        Some('/') => Tokens::Slash,
+        Some('(') => Tokens::LParen,
+        Some(')') => Tokens::RParen,
+        Some('=') => Tokens::Eq,
+        Some('\'') => {
+            // Read one character after opening quote
+            let ch = self.advance().expect("Expected character after single quote");
+            // Ensure it’s closed properly
+            if self.advance() != Some('\'') {
+                panic!("Expected closing single quote for character literal");
+            }
+            Tokens::Char(ch)
+        },
+        None => Tokens::EOF,
+        Some(c) => panic!("Unexpected token: {}", c),
     }
+}
     pub fn skip_white_space(&mut self) {
         while let Some(ch) = self.peek() {
             if ch.is_whitespace() {

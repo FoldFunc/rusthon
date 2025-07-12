@@ -8,7 +8,6 @@ enum ErrorType {
     Error003,
     Error004,
     Error005,
-    Error006,
 }
 
 fn store_var_names(ast: &[Stmt]) -> HashMap<&String, &Expr> {
@@ -58,6 +57,7 @@ fn print_commands(commands: &Vec<&Stmt>) {
                 Expr::Binary { left, op, right } => {
                     println!("This abomination: {:?}\t{:?}\t{:?}", left, op, right)
                 }
+                _ => println!("Invalid type for return"),
             },
             _ => println!("Unhandled stmt"),
         }
@@ -66,15 +66,20 @@ fn print_commands(commands: &Vec<&Stmt>) {
 
 fn validate_expr(expr: &Expr, vars: &HashMap<&String, &Expr>, is_return: bool) -> Option<ErrorType> {
     match expr {
+        Expr::Char(_c) => {
+            if is_return {
+                return Some(ErrorType::Error001);
+            }
+        }
         Expr::Number(n) => {
             if is_return && (*n < 0 || *n > 255) {
-                return Some(ErrorType::Error001);
+                return Some(ErrorType::Error004);
             }
         }
         Expr::Ident(s) => {
             let found = vars.keys().any(|k| *k == s);
             if !found {
-                return Some(if is_return { ErrorType::Error002 } else { ErrorType::Error005 });
+                return Some(if is_return { ErrorType::Error003 } else { ErrorType::Error005 });
             }
         }
         Expr::Binary { left, op: _, right } => {
@@ -85,7 +90,6 @@ fn validate_expr(expr: &Expr, vars: &HashMap<&String, &Expr>, is_return: bool) -
                 return Some(e);
             }
         }
-        _ => {}
     }
     None
 }
@@ -124,14 +128,14 @@ fn print_errors_return_stmt(errors: &Vec<ErrorType>) {
     for error in errors {
         match error {
             ErrorType::Error001 => {
-                eprintln!("\x1b[31mToo big or too small value of exit code in return statement.\x1b[0m");
+                eprintln!("\x1b[31mInvalid type in return.\x1b[0m");
                 std::process::exit(1);
             }
-            ErrorType::Error002 => {
+            ErrorType::Error003 => {
                 eprintln!("\x1b[31mInvalid variable name in return statement\x1b[0m");
                 std::process::exit(2);
             }
-            ErrorType::Error003 => {
+            ErrorType::Error004 => {
                 eprintln!("\x1b[31mFor now impossible to add error handling to this crap.\x1b[0m");
                 std::process::exit(3);
             }
@@ -146,7 +150,7 @@ fn print_errors_return_stmt(errors: &Vec<ErrorType>) {
 fn print_errors_redcl_stmt(errors: &Vec<ErrorType>) {
     for error in errors {
         match error {
-            ErrorType::Error004 => {
+            ErrorType::Error002 => {
                 eprintln!("\x1b[31mToo big or too small value of variable.\x1b[0m");
                 std::process::exit(1);
             }
@@ -154,7 +158,7 @@ fn print_errors_redcl_stmt(errors: &Vec<ErrorType>) {
                 eprintln!("\x1b[31mInvalid variable name.\x1b[0m");
                 std::process::exit(2);
             }
-            ErrorType::Error006 => {
+            ErrorType::Error004 => {
                 eprintln!("\x1b[31mFor now impossible to add error handling to this crap.\x1b[0m");
                 std::process::exit(3);
             }

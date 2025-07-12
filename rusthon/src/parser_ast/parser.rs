@@ -4,6 +4,7 @@ use std::error::Error;
 #[derive(Debug, Clone)]
 pub enum Expr {
     Number(i64),
+    Char(char),
     Binary {
         left: Box<Expr>,
         op: BinaryOp,
@@ -166,6 +167,11 @@ impl Parser {
 }
 pub fn parse_primary(&mut self) -> Expr {
         match self.current() {
+            Tokens::Char(c) => {
+                let ctoken = c.clone();
+                self.advance();
+                return Expr::Char(ctoken);
+            }
             Tokens::Number(n) => {
                 let val = n.clone();
                 self.advance();
@@ -189,6 +195,9 @@ pub fn parse_primary(&mut self) -> Expr {
 impl Expr {
     pub fn codegen_into(&self, asm: &mut Vec<String>) {
         match self {
+            Expr::Char(c) => {
+                asm.push(format!("    mov byte rax, \'{}\'", c));
+            }
             Expr::Ident(s) => {
                 asm.push(format!("    mov rax, [{s}]"));
             }
