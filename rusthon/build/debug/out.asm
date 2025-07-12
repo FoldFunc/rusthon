@@ -6,7 +6,7 @@ _start:
     ; store var: x in global memory
     mov [x], rax
     xor rax, rax
-    mov rax, [x]
+    mov rax, [y]
     push rax
     mov rax, 2
     pop rbx

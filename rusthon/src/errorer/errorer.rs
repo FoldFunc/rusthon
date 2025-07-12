@@ -5,6 +5,9 @@ enum ErrorType {
     Error001,
     Error002,
     Error003,
+    Error004,
+    Error005,
+    Error006,
 }
 fn store_var_names(ast: &[Stmt]) -> HashMap<&String, &Expr> {
     let mut vars = HashMap::new();
@@ -23,6 +26,9 @@ fn store_commands(ast: &[Stmt]) -> Vec<&Stmt> {
     for stmt in ast {
         match stmt {
             Stmt::Return(_) => {
+                commands.push(stmt);
+            }
+            Stmt::VarRedecl { .. } => {
                 commands.push(stmt);
             }
             _ => {}
@@ -103,8 +109,66 @@ fn print_errors_return_stmt(errors: &Vec<ErrorType>) {
             ErrorType::Error000 => {
                 println!("\x1b[32mEverything good.\x1b[0m");
             }
+            _ => println!("No need to worry bout that."),
         }
     }
+
+}
+fn print_errors_redcl_stmt(errors: &Vec<ErrorType>) {
+    for error in errors {
+        match error {
+            ErrorType::Error004 => {
+                eprintln!("\x1b[31mTo big or to small value of variable.\x1b[0m");
+                std::process::exit(1);
+            }
+            ErrorType::Error005 => {
+                eprintln!("\x1b[31mInvalid variable name.\x1b[0m");
+                std::process::exit(2);
+            }
+            ErrorType::Error006 => {
+                eprintln!("\x1b[31mFor now imposible to add error handling to this crap.\x1b[0m");
+                std::process::exit(3);
+            }
+            ErrorType::Error000 => {
+                println!("\x1b[32mEverything good.\x1b[0m");
+            }
+            _ => println!("No need to worry bout that."),
+        }
+    }
+
+}
+fn valid_redecler_variable(vars: &HashMap<&String, &Expr>, commands: &Vec<&Stmt>)-> Vec<ErrorType> {
+    let mut errors: Vec<ErrorType> = Vec::new();
+    for stmt in commands {
+        match stmt {
+            Stmt::VarRedecl { name, value } => match value {
+                Expr::Number(n) => {
+                    if *n > 2^64 || *n < -1*(2^64) {
+                        errors.push(ErrorType::Error004);
+                    }
+                }
+                Expr::Ident(s) => {
+                    let mut ok = false;
+                    for (k, v) in vars.clone() {
+                        if s.to_string() == k.to_string() {
+                            ok = true;
+                        }
+                    }
+                    if !ok {
+                        errors.push(ErrorType::Error005);
+                    }
+                }
+                Expr::Binary { left: _, op: _op, right: _right } => {
+                    errors.push(ErrorType::Error006);
+                }
+            }
+            _ => println!("No need to worry bout that"),
+        }
+    }
+    if errors.len() == 0 {
+        errors.push(ErrorType::Error000);
+    }
+    return errors;
 
 }
 pub fn find_errors(ast: &[Stmt]) {
@@ -114,7 +178,9 @@ pub fn find_errors(ast: &[Stmt]) {
     print_vars(&vars);
     print_commands(&commands);
     let errors_from_return_wrong = valid_return_variable(&vars, &commands);
+    let errors_from_var_redecl_wrong = valid_redecler_variable(&vars, &commands);
     let _ = print_errors_return_stmt(&errors_from_return_wrong);
+    let _ = print_errors_redcl_stmt(&errors_from_var_redecl_wrong);
 
 }
 
