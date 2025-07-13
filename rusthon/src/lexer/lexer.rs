@@ -1,4 +1,4 @@
-use std::error::Error;
+use std::{error::Error, panic};
 #[derive(Debug, PartialEq, Clone)]
 pub enum Tokens {
     Ident(String),
@@ -13,8 +13,10 @@ pub enum Tokens {
     Slash,
     LParen,
     RParen,
+    LBracket,
+    RBracket,
+    Comma,
     SemiColon,
-    Apostrophe,
     EOF,
 }
 pub struct Lexer {
@@ -50,6 +52,9 @@ impl Lexer {
         Some('(') => Tokens::LParen,
         Some(')') => Tokens::RParen,
         Some('=') => Tokens::Eq,
+        Some('[') => Tokens::LParen,
+        Some(']') => Tokens::RParen,
+        Some(',') => Tokens::Comma,
         Some('\'') => {
             // Read one character after opening quote
             let ch = self.advance().expect("Expected character after single quote");

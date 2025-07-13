@@ -5,6 +5,7 @@ use std::error::Error;
 pub enum Expr {
     Number(i64),
     Char(char),
+    List(Vec<Expr>),
     Binary {
         left: Box<Expr>,
         op: BinaryOp,
@@ -167,6 +168,23 @@ impl Parser {
 }
 pub fn parse_primary(&mut self) -> Expr {
         match self.current() {
+            Tokens::LBracket => {
+                self.advance();
+                let mut elements = Vec::new();
+                if self.current() != &Tokens::RBracket {
+                    loop {
+                        let expr = self.parse_expr(0);
+                        elements.push(expr);
+                        if self.eat(&Tokens::Comma) {
+                            continue;
+                        }else {
+                            break;
+                        }
+                    }
+                }
+                assert!(self.eat(&Tokens::LBracket));
+                Expr::List(elements)
+            }
             Tokens::Char(c) => {
                 let ctoken = c.clone();
                 self.advance();

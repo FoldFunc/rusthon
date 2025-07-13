@@ -1,15 +1,15 @@
 global _start
 
 section .bss
-x: resq 1        ; reserve 8 bytes for x (64-bit)
+vec: resq 2              ; Reserve space for 2 quadwords
 
 section .text
 _start:
-    mov rax, 10
-    mov [x], rax ; store 10 in x
+    mov qword [vec], 10          ; vec[0] = 10
+    mov qword [vec + 8*1], 20    ; vec[1] = 20
 
-    ; simulate "return 69"
-    mov rdi, [x]
-    mov rax, 60
+    mov rdi, [vec + 8*1]         ; Load vec[1] = 20 into rdi
+
+    mov rax, 60                  ; syscall number for exit
     syscall
 
