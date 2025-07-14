@@ -1,7 +1,7 @@
 use reqwest::blocking::Client;
 use std::collections::HashMap;
 use std::error::Error;
-pub fn call_login_server(email: String, password: String) -> Result<(), Box<dyn Error>> {
+pub fn call_login_server(email: String, password: String) -> Result<String, Box<dyn Error>> {
     println!("Logging in...");
     let client = Client::new();
     let mut data = HashMap::new();
@@ -14,10 +14,11 @@ pub fn call_login_server(email: String, password: String) -> Result<(), Box<dyn 
         Ok(resp) => {
             let body = resp.text()?;
             println!("Server response: {}", body);
+            return Ok(body);
         }
         Err(err) => {
             eprintln!("Failed to send data: {}", err);
         }
     }
-    Ok(())
+    Ok(" ".to_string())
 }

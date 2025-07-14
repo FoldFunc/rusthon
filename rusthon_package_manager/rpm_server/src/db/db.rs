@@ -23,7 +23,19 @@ pub async fn init_db() {
             email TEXT NOT NULL UNIQUE,
             password TEXT NOT NULL
         );
-        "#,
+        "#
+    )
+    .execute(&pool)
+    .await
+    .expect("Failed to create users table");
+    sqlx::query(
+        r#"
+        CREATE TABLE IF NOT EXISTS tokens (
+            id SERIAL PRIMARY KEY,
+            email TEXT NOT NULL UNIQUE,
+            token TEXT NOT NULL UNIQUE
+        );
+        "#
     )
     .execute(&pool)
     .await
