@@ -1,5 +1,5 @@
 use crate::parser_ast::parser::{Stmt, Expr};
-use std::{collections::HashMap, error::{self, Error}};
+use std::collections::HashMap;
 
 enum ErrorType {
     Error000,
@@ -8,6 +8,7 @@ enum ErrorType {
     Error003,
     Error004,
     Error005,
+    Error006,
 }
 
 fn store_var_names(ast: &[Stmt]) -> HashMap<&String, &Expr> {
@@ -89,6 +90,9 @@ fn validate_expr(expr: &Expr, vars: &HashMap<&String, &Expr>, is_return: bool) -
             if let Some(e) = validate_expr(right, vars, is_return) {
                 return Some(e);
             }
+        }
+        Expr::List(_l) => {
+            return Some(ErrorType::Error006);
         }
     }
     None

@@ -52,8 +52,8 @@ impl Lexer {
         Some('(') => Tokens::LParen,
         Some(')') => Tokens::RParen,
         Some('=') => Tokens::Eq,
-        Some('[') => Tokens::LParen,
-        Some(']') => Tokens::RParen,
+        Some('[') => Tokens::LBracket,
+        Some(']') => Tokens::RBracket,
         Some(',') => Tokens::Comma,
         Some('\'') => {
             // Read one character after opening quote

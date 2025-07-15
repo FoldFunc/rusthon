@@ -1,28 +1,19 @@
 global _start
 section .text
 _start:
-    ; … your prologue here (e.g. sub rsp…)
-    mov byte rax, 'c'
-    ; store var: text in global memory
-    mov [text], rax
-    xor rax, rax
-    mov rax, 4
-    ; store var: x in global memory
-    mov [x], rax
-    xor rax, rax
-    mov rax, 3
-    push rax
-    mov rax, [x]
-    push rax
+    sub rsp, 64
+    mov rax, 1
+    mov [vec0_addr + 8*0], rax
     mov rax, 2
-    pop rbx
-    add rax, rbx
-    pop rbx
-    xchg rax, rbx
-    imul rax, rbx
-   ; re declare var: x in global memory
-   mov [x], rax
-   xor rax, rax
+    mov [vec0_addr + 8*1], rax
+    mov rax, 3
+    mov [vec0_addr + 8*2], rax
+    lea rax, [vec0_addr]
+    mov [list], rax
+    mov byte rax, 'c'
+    mov [text], rax
+    mov rax, 10
+    mov [x], rax
     mov rax, [x]
     mov rdi, rax
     mov rax, 60
@@ -30,4 +21,7 @@ _start:
 
 section .bss
 text:    resq 1
+list:    resq 1
+list0_addr:    resq 3
 x:    resq 1
+vec0_addr: resq 3

@@ -1,5 +1,16 @@
 use crate::lexer::lexer::Tokens;
+use std::collections::HashMap;
 use std::error::Error;
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::Mutex;
+
+use lazy_static::lazy_static;
+
+lazy_static! {
+    pub static ref LISTS: Mutex<HashMap<String, usize>> = Mutex::new(HashMap::new());
+}
+
+static LIST_ID: AtomicUsize = AtomicUsize::new(0);
 
 #[derive(Debug, Clone)]
 pub enum Expr {
@@ -13,6 +24,7 @@ pub enum Expr {
     },
     Ident(String),
 }
+
 #[derive(Debug, Clone)]
 pub enum BinaryOp {
     Plus,
@@ -40,18 +52,13 @@ enum Assoc {
 
 impl Parser {
     pub fn new(tokens: Vec<Tokens>) -> Self {
-        Parser {
-            tokens,
-            position: 0,
-        }
+        Parser { tokens, position: 0 }
     }
 
     fn current(&self) -> &Tokens {
         self.tokens.get(self.position).unwrap_or(&Tokens::EOF)
     }
-    fn get_all(&self) -> Vec<Tokens> {
-        self.tokens.clone()
-    }
+
     fn advance(&mut self) {
         if self.position < self.tokens.len() {
             self.position += 1;
@@ -71,9 +78,6 @@ impl Parser {
         let mut stmts = Vec::new();
 
         while self.current() != &Tokens::EOF {
-            println!("self.get_all: {:?}", self.get_all());
-            println!("self.current: {:?}", self.current());
-
             let stmt = match self.current() {
                 Tokens::Return => {
                     self.advance();
@@ -97,13 +101,12 @@ impl Parser {
                     Stmt::VarDecl { name, value }
                 }
                 Tokens::Ident(s) => {
-                    let name = &mut s.to_string();
+                    let name = s.clone();
                     self.advance();
                     assert!(self.eat(&Tokens::Eq));
                     let value = self.parse_expr(0);
                     assert!(self.eat(&Tokens::SemiColon));
-                    Stmt::VarRedecl { name: name.to_string(), value }
-
+                    Stmt::VarRedecl { name, value }
                 }
                 _ => panic!("Expected statement, found {:?}", self.current()),
             };
@@ -113,60 +116,52 @@ impl Parser {
 
         stmts
     }
+
     pub fn parse_expr(&mut self, min_prec: u8) -> Expr {
-    // 1. Parse the left‐hand primary expression
-    let mut left = self.parse_primary();
+        let mut left = self.parse_primary();
 
-    // 2. As long as the next token is a binary op of at least min_prec, consume it
-    loop {
-        // Try to decode an operator + its precedence/associativity
-        let (prec, assoc) = match self.current() {
-            Tokens::Plus  => (1, Assoc::Left),
-            Tokens::Minus => (1, Assoc::Left),
-            Tokens::Star  => (2, Assoc::Left),
-            Tokens::Slash => (2, Assoc::Left),
-            _ => break,   // not an operator → break the loop
-        };
+        loop {
+            let (prec, assoc) = match self.current() {
+                Tokens::Plus => (1, Assoc::Left),
+                Tokens::Minus => (1, Assoc::Left),
+                Tokens::Star => (2, Assoc::Left),
+                Tokens::Slash => (2, Assoc::Left),
+                _ => break,
+            };
 
-        // If it’s lower‐priority than we need, stop parsing the binary chain
-        if prec < min_prec {
-            break;
+            if prec < min_prec {
+                break;
+            }
+
+            let op_token = self.current().clone();
+            self.advance();
+
+            let next_min = match assoc {
+                Assoc::Left => prec + 1,
+                Assoc::Right => prec,
+            };
+
+            let right = self.parse_expr(next_min);
+
+            let op = match op_token {
+                Tokens::Plus => BinaryOp::Plus,
+                Tokens::Minus => BinaryOp::Minus,
+                Tokens::Star => BinaryOp::Mul,
+                Tokens::Slash => BinaryOp::Div,
+                _ => unreachable!(),
+            };
+
+            left = Expr::Binary {
+                left: Box::new(left),
+                op,
+                right: Box::new(right),
+            };
         }
 
-        // Consume the operator token
-        let op_token = self.current().clone();
-        self.advance();
-
-        // Compute the next min_prec for the recursive call
-        let next_min = match assoc {
-            Assoc::Left  => prec + 1,
-            Assoc::Right => prec,
-        };
-
-        // Parse the RHS with that new precedence
-        let right = self.parse_expr(next_min);
-
-        // Map the token to your enum
-        let op = match op_token {
-            Tokens::Plus  => BinaryOp::Plus,
-            Tokens::Minus => BinaryOp::Minus,
-            Tokens::Star  => BinaryOp::Mul,
-            Tokens::Slash => BinaryOp::Div,
-            _ => unreachable!(),
-        };
-
-        // Combine into a new left node
-        left = Expr::Binary {
-            left:  Box::new(left),
-            op,
-            right: Box::new(right),
-        };
+        left
     }
 
-    // 3. Once no more ops, return what we’ve built
-    left
-}
-pub fn parse_primary(&mut self) -> Expr {
+    pub fn parse_primary(&mut self) -> Expr {
         match self.current() {
             Tokens::LBracket => {
                 self.advance();
@@ -177,21 +172,21 @@ pub fn parse_primary(&mut self) -> Expr {
                         elements.push(expr);
                         if self.eat(&Tokens::Comma) {
                             continue;
-                        }else {
+                        } else {
                             break;
                         }
                     }
                 }
-                assert!(self.eat(&Tokens::LBracket));
+                assert!(self.eat(&Tokens::RBracket));
                 Expr::List(elements)
             }
             Tokens::Char(c) => {
-                let ctoken = c.clone();
+                let ctoken = *c;
                 self.advance();
-                return Expr::Char(ctoken);
+                Expr::Char(ctoken)
             }
             Tokens::Number(n) => {
-                let val = n.clone();
+                let val = *n;
                 self.advance();
                 Expr::Number(val)
             }
@@ -210,14 +205,27 @@ pub fn parse_primary(&mut self) -> Expr {
         }
     }
 }
+
 impl Expr {
     pub fn codegen_into(&self, asm: &mut Vec<String>) {
         match self {
+            Expr::List(elements) => {
+                let id = LIST_ID.fetch_add(1, Ordering::SeqCst);
+                let label = format!("vec{}", id);
+
+                for (i, elem) in elements.iter().enumerate() {
+                    elem.codegen_into(asm); // puts result in rax
+                    asm.push(format!("    mov [{}_addr + 8*{}], rax", label, i));
+                }
+
+                asm.push(format!("    lea rax, [{}_addr]", label));
+                LISTS.lock().unwrap().insert(label, elements.len());
+            }
             Expr::Char(c) => {
-                asm.push(format!("    mov byte rax, \'{}\'", c));
+                asm.push(format!("    mov byte rax, '{}'", c));
             }
             Expr::Ident(s) => {
-                asm.push(format!("    mov rax, [{s}]"));
+                asm.push(format!("    mov rax, [{}]", s));
             }
             Expr::Number(n) => {
                 asm.push(format!("    mov rax, {}", n));
@@ -225,28 +233,21 @@ impl Expr {
             Expr::Binary { left, op, right } => {
                 left.codegen_into(asm);
                 asm.push("    push rax".into());
-
                 right.codegen_into(asm);
                 asm.push("    pop rbx".into());
 
                 match op {
-                    BinaryOp::Plus => {
-                        asm.push("    add rax, rbx".into());
-                    }
+                    BinaryOp::Plus => asm.push("    add rax, rbx".into()),
                     BinaryOp::Minus => {
                         asm.push("    mov rcx, rax".into());
                         asm.push("    mov rax, rbx".into());
                         asm.push("    sub rax, rcx".into());
                     }
                     BinaryOp::Mul => {
-                        // multiplication expects rax = left, rbx = right
-                        // currently rax=right, rbx=left, so swap:
-                        asm.push("    xchg rax, rbx".into()); // swap rax and rbx
+                        asm.push("    xchg rax, rbx".into());
                         asm.push("    imul rax, rbx".into());
                     }
                     BinaryOp::Div => {
-                        // division expects rax = dividend, rbx = divisor
-                        // currently rax=right, rbx=left, so swap:
                         asm.push("    xchg rax, rbx".into());
                         asm.push("    mov rdx, 0".into());
                         asm.push("    div rbx".into());
@@ -262,27 +263,24 @@ impl Expr {
         asm.join("\n")
     }
 }
+
 impl Stmt {
     pub fn codegen(&self) -> String {
         let mut asm = Vec::new();
         match self {
             Stmt::Return(expr) => {
                 expr.codegen_into(&mut asm);
-                asm.push(format!("    mov rdi, rax"));
+                asm.push("    mov rdi, rax".into());
                 asm.push("    mov rax, 60".into());
                 asm.push("    syscall".into());
             }
             Stmt::VarDecl { name, value } => {
                 value.codegen_into(&mut asm);
-                asm.push(format!("    ; store var: {} in global memory", name));
                 asm.push(format!("    mov [{}], rax", name));
-                asm.push(format!("    xor rax, rax"));
             }
             Stmt::VarRedecl { name, value } => {
                 value.codegen_into(&mut asm);
-                asm.push(format!("   ; re declare var: {} in global memory", name));
-                asm.push(format!("   mov [{}], rax", name));
-                asm.push(format!("   xor rax, rax"));
+                asm.push(format!("    mov [{}], rax", name));
             }
         }
         asm.join("\n")
@@ -293,3 +291,4 @@ pub fn parse(tokens: &Vec<Tokens>) -> Result<Vec<Stmt>, Box<dyn Error>> {
     let mut parser = Parser::new(tokens.to_vec());
     Ok(parser.parse())
 }
+

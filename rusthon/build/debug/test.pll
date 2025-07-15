@@ -1,6 +1,8 @@
 var list = [1, 2, 3];
+var list1 = [1, 2, 3];
+var list2 = [1, 2, 3];
+var list3 = [1, 2, 3];
 var text = 'c';
-var x = 4;
-x = 3 * (x + 2);
+var x = 10;
 return x;
 
