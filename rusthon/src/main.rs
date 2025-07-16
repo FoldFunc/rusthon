@@ -18,11 +18,9 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let tokens: Vec<Tokens> = lexer::lexer::tokenize(file_contents)?;
     printhelpers::print_tokens(&tokens);
-
     let ast = parser_ast::parser::parse(&tokens)?;
     printhelpers::print_ast(&ast);
     errorer::errorer::find_errors(&ast);
-
     file_helpers::gen_asm(&ast)?;
 
     Ok(())
