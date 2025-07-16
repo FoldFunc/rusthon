@@ -3,6 +3,8 @@ pub enum Tokens {
     Number(i32), // a number like in return '1'
     Ident(String), // Something like 'var' or 'return'
     Return, // a 'return' keyword
+    Var,
+    Eq,
     SemiColon, // a ';'
     EOF,
 }
@@ -31,6 +33,7 @@ impl Lexer {
             Some(ch) if ch.is_ascii_digit() => self.lex_number(ch),
             Some(ch) if ch.is_ascii_alphabetic() || ch == '_' => self.lex_ident(ch),
             Some(';') => Tokens::SemiColon,
+            Some('=') => Tokens::Eq,
             None => Tokens::EOF,
             Some(c) => panic!("Lexer error: Unexpected token: {}", c),
         }
@@ -68,6 +71,9 @@ impl Lexer {
         }
         if ident == "return" {
             return Tokens::Return;
+        }
+        if ident == "var" {
+            return Tokens::Var;
         }
         return Tokens::Ident(ident);
     }

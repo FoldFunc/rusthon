@@ -1,6 +1,7 @@
 #[derive(Debug)]
 pub enum Stmt {
     Return(Expr),
+    Var{name: String, val: Expr},
 }
 #[derive(Debug, Clone)]
 pub enum Expr {
@@ -24,6 +25,11 @@ impl Stmt {
                 asm.push(format!("{}mov rdi, rax", spaces.clone()).into());
                 asm.push(format!("{}mov rax, 60", spaces.clone()).into());
                 asm.push(format!("{}syscall", spaces.clone()).into());
+            }
+            Stmt::Var { name, val } => {
+                val.codegen_into(&mut asm, spaces.clone());
+                asm.push(format!("{}mov [{}], rax", spaces, name));
+
             }
         }
         asm.join("\n")

@@ -1,5 +1,8 @@
+use std::collections::HashMap;
+
 use lexer::lexer::Tokens;
 use codegen::codegen::Stmt;
+use codegen::codegen::Expr;
 mod helpers;
 mod parser;
 mod lexer;
@@ -21,7 +24,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
     let file_contents = helpers::file_context(&file_name);
     let tokens: Vec<Tokens> = lexer::lexer::tokenize(&file_contents.unwrap());
     print_lex_tokens(&tokens);
-    let parser_tree: Vec<Stmt> = parser::parser::parse(&tokens);
+    let (parser_tree, vars): (Vec<Stmt>, HashMap<String, Expr>) = parser::parser::parse(&tokens);
     print_parse_tokens(&parser_tree);
     let _comp = helpers::compile(&parser_tree);
     Ok(())

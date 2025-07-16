@@ -1,3 +1,6 @@
+use std::collections::HashMap;
+use std::hash::Hash;
+
 use crate::lexer::lexer::Tokens;
 use crate::codegen::codegen::Stmt;
 use crate::codegen::codegen::Expr;
@@ -24,7 +27,8 @@ impl Parser {
         }
         return false;
     }
-    pub fn parse(&mut self) -> Vec<Stmt> {
+    pub fn parse(&mut self) -> (Vec<Stmt>, HashMap<String, Expr>) {
+        let mut vars: HashMap<String, Expr> = HashMap::new();
         let mut stmts: Vec<Stmt> = Vec::new();
         while self.current() != &Tokens::EOF {
             let stmt = match self.current() {
@@ -34,11 +38,27 @@ impl Parser {
                     assert!(self.eat(&Tokens::SemiColon));
                     Stmt::Return(expr)
                 }
+                Tokens::Var => {
+                    self.advance();
+                    let name = match self.current() {
+                        Tokens::Ident(s) => {
+                            let ident = s.clone();
+                            self.advance();
+                            ident
+                        }
+                        _ => panic!("Unexpected token in variable decleration!"),
+                    };
+                    assert!(self.eat(&Tokens::Eq));
+                    let val = self.parse_expr();
+                    assert!(self.eat(&Tokens::SemiColon));
+                    vars.insert(name.clone(), val.clone());
+                    Stmt::Var { name: name.clone(), val: val.clone()}
+                }
                 _ => panic!("Expected statment recived: {:?}", self.current()),
             };
             stmts.push(stmt);
         }
-        return stmts;
+        return (stmts, vars);
     }
     pub fn parse_expr(&mut self) -> Expr {
         match self.current() {
