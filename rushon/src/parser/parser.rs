@@ -1,12 +1,6 @@
 use crate::lexer::lexer::Tokens;
-#[derive(Debug, Clone)]
-pub enum Expr {
-    Number(i32),
-}
-#[derive(Debug)]
-pub enum Stmt {
-    Return(Expr),
-}
+use crate::codegen::codegen::Stmt;
+use crate::codegen::codegen::Expr;
 pub struct Parser {
     tokens: Vec<Tokens>,
     position: usize,

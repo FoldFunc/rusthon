@@ -1,8 +1,9 @@
 use lexer::lexer::Tokens;
-use parser::parser::Stmt;
+use codegen::codegen::Stmt;
 mod helpers;
 mod parser;
 mod lexer;
+mod codegen;
 fn print_lex_tokens(tokens: &Vec<Tokens>) {
     for token in tokens {
         println!("Lex token: {:?}", token);
@@ -22,5 +23,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
     print_lex_tokens(&tokens);
     let parser_tree: Vec<Stmt> = parser::parser::parse(&tokens);
     print_parse_tokens(&parser_tree);
+    let _comp = helpers::compile(&parser_tree);
     Ok(())
 }
