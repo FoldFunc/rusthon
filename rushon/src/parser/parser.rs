@@ -11,7 +11,7 @@ impl Parser {
     pub fn new(tokens: Vec<Tokens>) -> Self {
         Parser { tokens: tokens, position: 0 }
     }
-    fn current(&self) -> &Tokens {
+    fn current(&mut self) -> &Tokens {
         return self.tokens.get(self.position).unwrap_or(&Tokens::EOF);
     }
     fn advance(&mut self) {
@@ -39,6 +39,7 @@ impl Parser {
                 }
                 Tokens::Var => {
                     self.advance();
+                    println!("self.current() in var: {:?}", self.current());
                     let name = match self.current() {
                         Tokens::Ident(s) => {
                             let ident = s.clone();
@@ -48,9 +49,11 @@ impl Parser {
                         _ => panic!("Unexpected token in variable decleration!"),
                     };
                     let typee = self.parse_type();
-                    self.advance();
+                    println!("Typee: {:?}", typee);
                     assert!(self.eat(&Tokens::Eq));
                     let val = self.parse_expr();
+                    println!("val: {:?}", val);
+                    println!("self.current(): {:?}", self.current());
                     assert!(self.eat(&Tokens::SemiColon));
                     vars.insert(name.clone(), val.clone());
                     Stmt::Var { name: name.clone(),typee: typee.clone(), val: val.clone()}
@@ -64,20 +67,38 @@ impl Parser {
     pub fn parse_type(&mut self) -> Type {
         match self.current() {
             Tokens::Type(s) => {
-                if s == "char" {
-                    return Type::Char;
-                } else if s == "int32" {
-                    return Type::Int32;
-                } else {
-                    panic!("Invalid type in var statment: {}", s);
-                }
+                let t = match s.as_str() {
+                    "char" => Type::Char,
+                    "int32" => Type::Int32,
+                    "list" => Type::List,
+                    _ => panic!("Invalid type of variable."),
+                };
+                self.advance(); // ✅ Consume the Type token
+                t
             }
-            _ => panic!("Invalid Token in function parse type: {:?}", self.current()),
+            _ => panic!("Invalid Token in function parse_type: {:?}", self.current()),
+        }
+    }
 
+    pub fn parse_list(&mut self,token: &Tokens) -> Expr {
+        match token {
+            Tokens::Number(i) => {
+                let val = i.clone();
+                return Expr::Number(val);
+            }
+            _ => panic!("Invalid type in list"),
         }
     }
     pub fn parse_expr(&mut self) -> Expr {
         match self.current() {
+            Tokens::List(l) => {
+                let mut list: Vec<Expr> = Vec::new();
+                for i in l.clone() {
+                    list.push(self.parse_list(&i));
+                }
+                self.advance();
+                return Expr::List(list);
+            }
             Tokens::Number(i) => {
                 let val = *i;
                 self.advance();

@@ -42,13 +42,13 @@ pub fn compile(ast: &Vec<Stmt>, vars: HashMap<String, Expr>) -> Result<bool, Box
     writeln!(file, "section .bss")?;
     for (name, var) in vars {
         match var {
-            Expr::Number(_n) => {
-                writeln!(file, "{}{}: resq {}", "    ",name, 1)?;
+            Expr::Number(_) | Expr::Char(_) => {
+                writeln!(file, "    {}: resq 1", name)?;
             }
-            Expr::Char(_c) => {
-                writeln!(file, "{}{}: resq {}", "    ", name, 1)?;
+            Expr::List(ref items) => {
+                writeln!(file, "    {}: resq {}", name, items.len())?;
             }
-            _ => panic!("Invalid expresion in var."),
+            _ => panic!("Invalid expression in var."),
         }
     }
     Ok(true)
