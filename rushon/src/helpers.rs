@@ -42,7 +42,7 @@ pub fn compile(ast: &Vec<Stmt>, vars: HashMap<String, Expr>) -> Result<bool, Box
     writeln!(file, "section .bss")?;
     for (name, var) in vars {
         match var {
-            Expr::Number(_) | Expr::Char(_) => {
+            Expr::Number(_) | Expr::Char(_) | Expr::Bool(_) => {
                 writeln!(file, "    {}: resq 1", name)?;
             }
             Expr::List(ref items) => {

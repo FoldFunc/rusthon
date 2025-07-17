@@ -71,6 +71,7 @@ impl Parser {
                     "char" => Type::Char,
                     "int32" => Type::Int32,
                     "list" => Type::List,
+                    "bool" => Type::Bool,
                     _ => panic!("Invalid type of variable."),
                 };
                 self.advance(); // ✅ Consume the Type token
@@ -113,6 +114,11 @@ impl Parser {
                 let val = c.clone();
                 self.advance();
                 return Expr::Char(val);
+            }
+            Tokens::Boolean(b) => {
+                let val = b.clone();
+                self.advance();
+                return Expr::Bool(val);
             }
             _ => panic!("Invalid Expr: {:?}", self.current()),
         }

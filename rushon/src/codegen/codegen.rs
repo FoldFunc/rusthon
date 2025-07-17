@@ -6,6 +6,7 @@ pub enum Stmt {
 #[derive(Debug, Clone)]
 pub enum Expr {
     Number(i32),
+    Bool(bool),
     Ident(String),
     Char(char),
     List(Vec<Expr>),
@@ -15,12 +16,20 @@ pub enum Type{
     Char,
     Int32,
     List,
+    Bool,
 }
 impl Expr {
     pub fn codegen_into(&self, asm: &mut Vec<String>, spaces: String) {
         match self {
             Expr::Number(n) => {
                 asm.push(format!("{}mov rax, {}", spaces, n));
+            }
+            Expr::Bool(b) => {
+                if *b {
+                    asm.push(format!("{}mov rax, {}", spaces, 1)); // true is 1
+                }else {
+                    asm.push(format!("{}mov rax, {}", spaces, 0)); // false is 0
+                }
             }
             Expr::Ident(s) => {
                 asm.push(format!("{}mov rax, [{}]", spaces, s));

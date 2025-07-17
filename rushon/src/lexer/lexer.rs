@@ -1,10 +1,11 @@
 #[derive(Debug, PartialEq, Clone)]
 pub enum Tokens {
     Number(i32),         // a number like 1
+    Boolean(bool),    // true or false
     Ident(String),       // variable names
     Char(char),          // single character like 'a'
     List(Vec<Tokens>),   // [1, 'a', 2]
-    Type(String),        // :int32, :char
+    Type(String),        // :int32, :char, :bool
     Return,              // 'return'
     Var,                 // 'var'
     Eq,                  // '='
@@ -86,6 +87,8 @@ impl Lexer {
         match ident.as_str() {
             "return" => Tokens::Return,
             "var" => Tokens::Var,
+            "true" => Tokens::Boolean(true),
+            "false" => Tokens::Boolean(false),
             _ => Tokens::Ident(ident),
         }
     }
@@ -102,7 +105,7 @@ impl Lexer {
             }
         }
         match typee.as_str() {
-            "int32" | "char" | "list" => Tokens::Type(typee),
+            "int32" | "char" | "list" | "bool" => Tokens::Type(typee),
             _ => panic!("Invalid type: {}", typee),
         }
     }
