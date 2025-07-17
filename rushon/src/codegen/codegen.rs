@@ -6,12 +6,16 @@ pub enum Stmt {
 #[derive(Debug, Clone)]
 pub enum Expr {
     Number(i32),
+    Ident(String),
 }
 impl Expr {
     pub fn codegen_into(&self, asm: &mut Vec<String>, spaces: String) {
         match self {
             Expr::Number(n) => {
                 asm.push(format!("{}mov rax, {}", spaces, n));
+            }
+            Expr::Ident(s) => {
+                asm.push(format!("{}mov rax, [{}]", spaces, s));
             }
         }
     }

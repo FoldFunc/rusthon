@@ -3,7 +3,6 @@ use std::fs::{self, OpenOptions};
 use std::io::Write;
 use std::path::Path;
 use std::error::Error;
-use std::str::SplitAsciiWhitespace;
 use crate::codegen::codegen::{Expr, Stmt};
 pub fn command_line_args() -> Result<String, Box<dyn Error>> {
     let args: Vec<String> = std::env::args().collect();
@@ -24,9 +23,8 @@ pub fn file_context(path: &String) -> Result<String, Box<dyn Error>> {
     fs::read_to_string(path)
         .map_err(|e| format!("Error ocured when looking at file: {}", e).into())
 }
-pub fn compile(ast: &Vec<Stmt>) -> Result<bool, Box<dyn Error>> {
+pub fn compile(ast: &Vec<Stmt>, vars: HashMap<String, Expr>) -> Result<bool, Box<dyn Error>> {
     let mut asm_lines = Vec::new();
-    let mut vars: HashMap<Expr, String> = HashMap::new();
     for stmt in ast {
         asm_lines.push(stmt.codegen("    ".to_string()));
     }
@@ -42,8 +40,13 @@ pub fn compile(ast: &Vec<Stmt>) -> Result<bool, Box<dyn Error>> {
         writeln!(file, "{}", line)?;
     }
     writeln!(file, "section .bss")?;
-    for (var, name) in vars {
-        writeln!(file, "{}{} resq: {}", "    ", var, name)?;
+    for (name, var) in vars {
+        match var {
+            Expr::Number(n) => {
+                writeln!(file, "{}{}: resq {}", "    ",name, n)?;
+            }
+            _ => panic!("Invalid expresion in var."),
+        }
     }
     Ok(true)
 }

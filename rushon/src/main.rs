@@ -26,6 +26,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
     print_lex_tokens(&tokens);
     let (parser_tree, vars): (Vec<Stmt>, HashMap<String, Expr>) = parser::parser::parse(&tokens);
     print_parse_tokens(&parser_tree);
-    let _comp = helpers::compile(&parser_tree);
+    let _comp = helpers::compile(&parser_tree, vars);
     Ok(())
 }

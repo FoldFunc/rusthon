@@ -1,6 +1,4 @@
 use std::collections::HashMap;
-use std::hash::Hash;
-
 use crate::lexer::lexer::Tokens;
 use crate::codegen::codegen::Stmt;
 use crate::codegen::codegen::Expr;
@@ -67,11 +65,16 @@ impl Parser {
                 self.advance();
                 return Expr::Number(val);
             }
+            Tokens::Ident(s) => {
+                let val = s.clone();
+                self.advance();
+                return Expr::Ident(val);
+            }
             _ => panic!("Invalid expr in return statment: {:?}", self.current()),
         }
     }
 }
-pub fn parse(lex_tokens: &Vec<Tokens>) -> Vec<Stmt> {
+pub fn parse(lex_tokens: &Vec<Tokens>) -> (Vec<Stmt>, HashMap<String, Expr>) {
     let mut parser = Parser::new(lex_tokens.to_vec());
     return parser.parse();
 }
