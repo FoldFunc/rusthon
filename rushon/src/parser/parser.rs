@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+use crate::codegen::codegen::Type;
 use crate::lexer::lexer::Tokens;
 use crate::codegen::codegen::Stmt;
 use crate::codegen::codegen::Expr;
@@ -9,7 +11,7 @@ impl Parser {
     pub fn new(tokens: Vec<Tokens>) -> Self {
         Parser { tokens: tokens, position: 0 }
     }
-    fn current(&self) -> &Tokens {
+    fn current(&mut self) -> &Tokens {
         return self.tokens.get(self.position).unwrap_or(&Tokens::EOF);
     }
     fn advance(&mut self) {
@@ -24,7 +26,8 @@ impl Parser {
         }
         return false;
     }
-    pub fn parse(&mut self) -> Vec<Stmt> {
+    pub fn parse(&mut self) -> (Vec<Stmt>, HashMap<String, Expr>) {
+        let mut vars: HashMap<String, Expr> = HashMap::new();
         let mut stmts: Vec<Stmt> = Vec::new();
         while self.current() != &Tokens::EOF {
             let stmt = match self.current() {
@@ -34,24 +37,88 @@ impl Parser {
                     assert!(self.eat(&Tokens::SemiColon));
                     Stmt::Return(expr)
                 }
+                Tokens::Var => {
+                    self.advance();
+                    println!("self.current() in var: {:?}", self.current());
+                    let name = match self.current() {
+                        Tokens::Ident(s) => {
+                            let ident = s.clone();
+                            self.advance();
+                            ident
+                        }
+                        _ => panic!("Unexpected token in variable decleration!"),
+                    };
+                    let typee = self.parse_type();
+                    println!("Typee: {:?}", typee);
+                    assert!(self.eat(&Tokens::Eq));
+                    let val = self.parse_expr();
+                    println!("val: {:?}", val);
+                    println!("self.current(): {:?}", self.current());
+                    assert!(self.eat(&Tokens::SemiColon));
+                    vars.insert(name.clone(), val.clone());
+                    Stmt::Var { name: name.clone(),typee: typee.clone(), val: val.clone()}
+                }
                 _ => panic!("Expected statment recived: {:?}", self.current()),
             };
             stmts.push(stmt);
         }
-        return stmts;
+        return (stmts, vars);
+    }
+    pub fn parse_type(&mut self) -> Type {
+        match self.current() {
+            Tokens::Type(s) => {
+                let t = match s.as_str() {
+                    "char" => Type::Char,
+                    "int32" => Type::Int32,
+                    "list" => Type::List,
+                    _ => panic!("Invalid type of variable."),
+                };
+                self.advance(); // ✅ Consume the Type token
+                t
+            }
+            _ => panic!("Invalid Token in function parse_type: {:?}", self.current()),
+        }
+    }
+
+    pub fn parse_list(&mut self,token: &Tokens) -> Expr {
+        match token {
+            Tokens::Number(i) => {
+                let val = i.clone();
+                return Expr::Number(val);
+            }
+            _ => panic!("Invalid type in list"),
+        }
     }
     pub fn parse_expr(&mut self) -> Expr {
         match self.current() {
+            Tokens::List(l) => {
+                let mut list: Vec<Expr> = Vec::new();
+                for i in l.clone() {
+                    list.push(self.parse_list(&i));
+                }
+                self.advance();
+                return Expr::List(list);
+            }
             Tokens::Number(i) => {
                 let val = *i;
                 self.advance();
                 return Expr::Number(val);
             }
-            _ => panic!("Invalid expr in return statment: {:?}", self.current()),
+            Tokens::Ident(s) => {
+                let val = s.clone();
+                self.advance();
+                return Expr::Ident(val);
+            }
+            Tokens::Char(c) => {
+                let val = c.clone();
+                self.advance();
+                return Expr::Char(val);
+            }
+            _ => panic!("Invalid Expr: {:?}", self.current()),
         }
     }
 }
-pub fn parse(lex_tokens: &Vec<Tokens>) -> Vec<Stmt> {
+pub fn parse(lex_tokens: &Vec<Tokens>) -> (Vec<Stmt>, HashMap<String, Expr>) {
     let mut parser = Parser::new(lex_tokens.to_vec());
     return parser.parse();
 }

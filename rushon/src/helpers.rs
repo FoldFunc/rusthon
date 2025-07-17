@@ -1,8 +1,9 @@
+use std::collections::HashMap;
 use std::fs::{self, OpenOptions};
 use std::io::Write;
 use std::path::Path;
 use std::error::Error;
-use crate::codegen::codegen::Stmt;
+use crate::codegen::codegen::{Expr, Stmt};
 pub fn command_line_args() -> Result<String, Box<dyn Error>> {
     let args: Vec<String> = std::env::args().collect();
     if args.len() != 2 {
@@ -22,7 +23,7 @@ pub fn file_context(path: &String) -> Result<String, Box<dyn Error>> {
     fs::read_to_string(path)
         .map_err(|e| format!("Error ocured when looking at file: {}", e).into())
 }
-pub fn compile(ast: &Vec<Stmt>) -> Result<bool, Box<dyn Error>> {
+pub fn compile(ast: &Vec<Stmt>, vars: HashMap<String, Expr>) -> Result<bool, Box<dyn Error>> {
     let mut asm_lines = Vec::new();
     for stmt in ast {
         asm_lines.push(stmt.codegen("    ".to_string()));
@@ -37,6 +38,18 @@ pub fn compile(ast: &Vec<Stmt>) -> Result<bool, Box<dyn Error>> {
     writeln!(file, "_start:")?;
     for line in asm_lines {
         writeln!(file, "{}", line)?;
+    }
+    writeln!(file, "section .bss")?;
+    for (name, var) in vars {
+        match var {
+            Expr::Number(_) | Expr::Char(_) => {
+                writeln!(file, "    {}: resq 1", name)?;
+            }
+            Expr::List(ref items) => {
+                writeln!(file, "    {}: resq {}", name, items.len())?;
+            }
+            _ => panic!("Invalid expression in var."),
+        }
     }
     Ok(true)
 }

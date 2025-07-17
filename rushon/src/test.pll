@@ -1,1 +1,4 @@
-return 10;
+var vec: list = [1, 2, 3];
+var c: char = 'c';
+var x: int32 = 11;
+return x;
