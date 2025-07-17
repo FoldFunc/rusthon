@@ -2,10 +2,12 @@
 pub enum Tokens {
     Number(i32), // a number like in return '1'
     Ident(String), // Something like 'var' or 'return'
+    Char(char), // 'c' eg.
+    Type(String), // A type of a variable
     Return, // a 'return' keyword
-    Var,
-    Eq,
-    SemiColon, // a ';'
+    Var, // 'var'
+    Eq, // '='
+    SemiColon,
     EOF,
 }
 pub struct Lexer {
@@ -34,6 +36,8 @@ impl Lexer {
             Some(ch) if ch.is_ascii_alphabetic() || ch == '_' => self.lex_ident(ch),
             Some(';') => Tokens::SemiColon,
             Some('=') => Tokens::Eq,
+            Some(':') => self.lex_type(),
+            Some('\'') => self.lex_char(),
             None => Tokens::EOF,
             Some(c) => panic!("Lexer error: Unexpected token: {}", c),
         }
@@ -47,6 +51,21 @@ impl Lexer {
             }
         }
     }
+    pub fn lex_char(&mut self) -> Tokens {
+        let ch = match self.peek() {
+            Some(c) => {
+                self.advance();
+                c
+            }
+            None => panic!("Unexpected end of input in character literal"),
+        };
+
+        match self.peek() {
+            Some('\'') => self.advance(), // Skip closing quote
+            _ => panic!("Expected closing quote in character literal"),
+        };
+        Tokens::Char(ch)
+    }
     pub fn lex_number(&mut self, first: char) -> Tokens {
         let mut num = first.to_string();
         while let Some(ch) = self.peek() {
@@ -58,6 +77,25 @@ impl Lexer {
             }
         }
         return Tokens::Number(num.parse().unwrap());
+    }
+    pub fn lex_type(&mut self) -> Tokens {
+        self.advance();
+        let mut typee = String::new();
+        while let Some(ch) = self.peek() {
+            if ch.is_ascii_whitespace() {
+                break;
+            } else {
+                typee.push(ch);
+                self.advance();
+            }
+        }
+        if typee == "int32" {
+            return Tokens::Type(typee);
+        } else if typee == "char" {
+            return Tokens::Type(typee);
+        } else {
+            panic!("Invalid type of var: {}", typee);
+        }
     }
     pub fn lex_ident(&mut self, first: char) -> Tokens {
         let mut ident = first.to_string();

@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use crate::codegen::codegen::Type;
 use crate::lexer::lexer::Tokens;
 use crate::codegen::codegen::Stmt;
 use crate::codegen::codegen::Expr;
@@ -46,17 +47,34 @@ impl Parser {
                         }
                         _ => panic!("Unexpected token in variable decleration!"),
                     };
+                    let typee = self.parse_type();
+                    self.advance();
                     assert!(self.eat(&Tokens::Eq));
                     let val = self.parse_expr();
                     assert!(self.eat(&Tokens::SemiColon));
                     vars.insert(name.clone(), val.clone());
-                    Stmt::Var { name: name.clone(), val: val.clone()}
+                    Stmt::Var { name: name.clone(),typee: typee.clone(), val: val.clone()}
                 }
                 _ => panic!("Expected statment recived: {:?}", self.current()),
             };
             stmts.push(stmt);
         }
         return (stmts, vars);
+    }
+    pub fn parse_type(&mut self) -> Type {
+        match self.current() {
+            Tokens::Type(s) => {
+                if s == "char" {
+                    return Type::Char;
+                } else if s == "int32" {
+                    return Type::Int32;
+                } else {
+                    panic!("Invalid type in var statment: {}", s);
+                }
+            }
+            _ => panic!("Invalid Token in function parse type: {:?}", self.current()),
+
+        }
     }
     pub fn parse_expr(&mut self) -> Expr {
         match self.current() {
@@ -70,7 +88,12 @@ impl Parser {
                 self.advance();
                 return Expr::Ident(val);
             }
-            _ => panic!("Invalid expr in return statment: {:?}", self.current()),
+            Tokens::Char(c) => {
+                let val = c.clone();
+                self.advance();
+                return Expr::Char(val);
+            }
+            _ => panic!("Invalid Expr: {:?}", self.current()),
         }
     }
 }
