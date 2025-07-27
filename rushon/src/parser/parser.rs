@@ -1,5 +1,7 @@
+use crate::parser::helpers;
 use std::collections::HashMap;
 use crate::codegen::codegen::Type;
+use crate::lexer::lexer::Binary;
 use crate::lexer::lexer::Tokens;
 use crate::codegen::codegen::Stmt;
 use crate::codegen::codegen::Expr;
@@ -92,6 +94,36 @@ impl Parser {
     }
     pub fn parse_expr(&mut self) -> Expr {
         match self.current() {
+            Tokens::Binary(b) => {
+                let mut rawdawg: Vec<String> = Vec::new(); // Give it to me raw dawg.
+                for element in b.clone() {
+                    match element {
+                        Binary::Number(i) => {
+                            rawdawg.push(i.to_string());
+                        }
+                        Binary::Add => {
+                            rawdawg.push("+".to_string());
+                        }
+                        Binary::Sub => {
+                            rawdawg.push("-".to_string());
+                        }
+                        Binary::Mul => {
+                            rawdawg.push("*".to_string());
+                        }
+                        Binary::Div => {
+                            rawdawg.push("/".to_string());
+                        }
+                        Binary::ParL=> {
+                            rawdawg.push("[".to_string());
+                        }
+                        Binary::ParR=> {
+                            rawdawg.push("]".to_string());
+                        }
+                    }
+                }
+                let mut score = helpers::parse_binary_string_to_value(&rawdawg);
+                return Expr::Binary(score);
+            }
             Tokens::List(l) => {
                 let mut list: Vec<Expr> = Vec::new();
                 for i in l.clone() {

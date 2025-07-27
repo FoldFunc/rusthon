@@ -7,6 +7,7 @@ pub enum Stmt {
 pub enum Expr {
     Number(i32),
     Bool(bool),
+    Binary(i32),
     Ident(String),
     Char(char),
     List(Vec<Expr>),

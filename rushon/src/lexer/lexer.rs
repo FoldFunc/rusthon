@@ -1,10 +1,21 @@
 #[derive(Debug, PartialEq, Clone)]
+pub enum Binary {
+    Number(i32),
+    Add,
+    Sub,
+    Mul,
+    Div,
+    ParL,
+    ParR,
+}
+#[derive(Debug, PartialEq, Clone)]
 pub enum Tokens {
     Number(i32),         // a number like 1
+    Binary(Vec<Binary>), // (1, "+", 2 "*", 3, "[", 1, "-", 2, "]")
     Boolean(bool),    // true or false
     Ident(String),       // variable names
     Char(char),          // single character like 'a'
-    List(Vec<Tokens>),   // [1, 'a', 2]
+    List(Vec<Tokens>),   // [1, 3, 2]
     Type(String),        // :int32, :char, :bool
     Return,              // 'return'
     Var,                 // 'var'
@@ -56,11 +67,61 @@ impl Lexer {
             Some(':') => self.lex_type(),
             Some('\'') => self.lex_char(),
             Some('[') => self.lex_list(),
+            Some('(') => self.lex_binary(),
             None => Tokens::EOF,
             Some(c) => panic!("Lexer error: Unexpected token: {}", c),
         }
     }
-
+    pub fn lex_binary(&mut self) -> Tokens {
+        let mut list:Vec<Binary> = Vec::new();
+        loop {
+            self.skip_white_space();
+            match self.peek() {
+                Some(')') => {
+                    self.advance();
+                    break;
+                }
+                Some('+') => {
+                    list.push(Binary::Add);
+                    self.advance();
+                }
+                Some('-') => {
+                    list.push(Binary::Sub);
+                    self.advance();
+                }
+                Some('*') => {
+                    list.push(Binary::Mul);
+                    self.advance();
+                }
+                Some('/') => {
+                    list.push(Binary::Div);
+                    self.advance();
+                }
+                Some('[') => {
+                    list.push(Binary::ParL);
+                    self.advance();
+                }
+                Some(']') => {
+                    list.push(Binary::ParR);
+                    self.advance();
+                }
+                Some(c) => {
+                    let mut num = c.to_string();
+                    while let Some(ch) = self.peek() {
+                        if ch.is_ascii_digit() {
+                            num.push(ch);
+                            self.advance();
+                        } else {
+                            break;
+                        }
+                    }
+                    list.push(Binary::Number(num.parse().unwrap()));
+                }
+                _ => panic!("Invalid token in binary operation.")
+            }
+        }
+        return Tokens::Binary(list);
+    }
     pub fn lex_number(&mut self, first: char) -> Tokens {
         let mut num = first.to_string();
         while let Some(ch) = self.peek() {

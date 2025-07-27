@@ -33,7 +33,8 @@ pub async fn init_db() {
         CREATE TABLE IF NOT EXISTS tokens (
             id SERIAL PRIMARY KEY,
             email TEXT NOT NULL UNIQUE,
-            token TEXT NOT NULL UNIQUE
+            token TEXT NOT NULL UNIQUE,
+            time TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
         "#
     )
