@@ -221,6 +221,7 @@ impl Lexer {
         Tokens::List(list)
     }
 }
+
 // Entry point to tokenize a full input string
 pub fn tokenize(content: &String) -> Vec<Tokens> {
     let mut tokens = Vec::new();

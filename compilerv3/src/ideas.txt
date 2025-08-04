@@ -5,17 +5,23 @@ pre procesor:
     }
     lexer:
         output -> 
-        [fn_decl(name: entry, body: return_stmt(val: 0))]
+        [Func_Decl, Ident("entry"), LeftParent, RightParent, LeftSBracket,
+        Ident("retrun"), Number(0), SemiColon, RightSBracket]
+    parser:
+    input ->
+    [Func_Decl, Ident("entry"), LeftParent, RightParent, LeftSBracket,
+    Ident("retrun"), Number(0), SemiColon, RightSBracket]
+
     output -> 
     fn[
         name: entry,
-        stmt: [
+        stmts: [
             return: [
                 val: 0
             ]
         ]
     ]
-asm generator:
+asm IrGenerator:
     input ->
     fn[
         name: entry,
@@ -27,11 +33,13 @@ asm generator:
     ]
     if fn.name = "entry" then fn.name = "_start"
     output ->
-    section .data
-        fn_return: db 0
-    section .text
-    global _start
-    _start:
-        mov rdi, [fn_return]
-        mov rax, 60
-        syscall
+    fn entry{
+        x=30;
+        return 30;
+    }
+now:
+     mainfoo
+    /      \
+{return
+  |
+  val: 0 }
