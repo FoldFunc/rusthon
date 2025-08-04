@@ -1,0 +1,37 @@
+pre procesor:
+    input ->
+    function entry() {
+        return 0;
+    }
+    lexer:
+        output -> 
+        [fn_decl(name: entry, body: return_stmt(val: 0))]
+    output -> 
+    fn[
+        name: entry,
+        stmt: [
+            return: [
+                val: 0
+            ]
+        ]
+    ]
+asm generator:
+    input ->
+    fn[
+        name: entry,
+        stmt: [
+            return: [
+                val: 0
+            ]
+        ]
+    ]
+    if fn.name = "entry" then fn.name = "_start"
+    output ->
+    section .data
+        fn_return: db 0
+    section .text
+    global _start
+    _start:
+        mov rdi, [fn_return]
+        mov rax, 60
+        syscall

@@ -44,6 +44,9 @@ impl Expr {
                     asm.push(format!("{}mov [{}_{}], rax", spaces, "__list", i)); // or use real variable name + offset
                 }
             }
+            Expr::Binary(b) => {
+                asm.push(format!("{}mov rax, [{}]", spaces, b));
+            }
         }
     }
 }

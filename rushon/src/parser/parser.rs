@@ -1,4 +1,4 @@
-use crate::parser::helpers;
+use crate::parser;
 use std::collections::HashMap;
 use crate::codegen::codegen::Type;
 use crate::lexer::lexer::Binary;
@@ -121,7 +121,7 @@ impl Parser {
                         }
                     }
                 }
-                let mut score = helpers::parse_binary_string_to_value(&rawdawg);
+                let mut score = parser::helpers::eval_expression(rawdawg);
                 return Expr::Binary(score);
             }
             Tokens::List(l) => {

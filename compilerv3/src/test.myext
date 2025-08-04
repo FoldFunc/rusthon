@@ -1,0 +1,3 @@
+function entry() {
+    retrun 0;
+}
