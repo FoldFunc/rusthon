@@ -1,14 +1,9 @@
-use std::{fmt, ops::Index};
 use crate::pre_procesor::lexer::Token;
+use std::{fmt, ops::Index};
 #[derive(Debug, Clone)]
 pub enum Stmt {
-    Fn {
-        name: String,
-        body: Vec<Stmt>,
-    },
-    Ret {
-        val: i32,
-    },
+    Fn { name: String, body: Vec<Stmt> },
+    Ret { val: i32 },
 }
 impl fmt::Display for Stmt {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -31,9 +26,6 @@ impl Stmt {
         }
         Ok(())
     }
-    pub fn codegen(&mut self) -> String {
-        return " ".to_string();
-    }
 }
 #[derive(Debug, Clone)]
 pub struct Ast {
@@ -55,6 +47,49 @@ impl Ast {
     pub fn push(&mut self, stmt: Stmt) {
         self.stmts.push(stmt);
     }
+    pub fn codegen_into_fn(&self, stmts: &Vec<Stmt>) -> Vec<String> {
+        let mut asm_lines: Vec<String> = Vec::new();
+        let spaces = " ".repeat(4);
+        for stmt in stmts {
+            match stmt {
+                Stmt::Ret { val } => {
+                    asm_lines.push(format!("{}xor rdi, rdi", spaces));
+                    asm_lines.push(format!("{}xor rax, rax", spaces));
+                    asm_lines.push(format!("{}mov rdi, {}", spaces, val));
+                    asm_lines.push(format!("{}mov rax, 60", spaces));
+                    asm_lines.push(format!("{}syscall", spaces));
+                }
+                _ => panic!("Invalid in function"),
+            }
+        }
+        return asm_lines;
+    }
+    pub fn codegen(&self) -> Vec<String> {
+        let mut asm_lines: Vec<String> =
+            vec!["global _start".to_string(), "section .text".to_string()];
+        for stmt in &self.stmts {
+            match stmt {
+                Stmt::Fn { name, body } => {
+                    asm_lines.push(format!("{}:", name));
+                    let add_lines = self.codegen_into_fn(body);
+                    for line in add_lines {
+                        asm_lines.push(line);
+                    }
+                }
+                Stmt::Ret { val } => {
+                    asm_lines.push(format!("xor rdi, rdi"));
+                    asm_lines.push(format!("xor rax, rax"));
+                    asm_lines.push(format!("mov rdi, {}", val));
+                    asm_lines.push(format!("mov rax, 60"));
+                    asm_lines.push(format!("syscall"));
+                }
+            }
+        }
+        for line in &asm_lines {
+            println!("line of asm: {}", line);
+        }
+        return asm_lines;
+    }
 }
 
 pub struct Parser {
@@ -64,7 +99,10 @@ pub struct Parser {
 
 impl Parser {
     pub fn new(tokens: Vec<Token>) -> Self {
-        Parser { tokens, position: 0 }
+        Parser {
+            tokens,
+            position: 0,
+        }
     }
 
     fn current(&self) -> &Token {
@@ -97,12 +135,13 @@ impl Parser {
             _ => panic!("Expected number after return"),
         };
         assert!(self.eat(&Token::SemiColon));
+        assert!(val <= 256 && val >= 0);
         Stmt::Ret { val }
     }
 
     fn parse_fn(&mut self) -> Stmt {
         self.advance(); // consume `fn`
-        let name = match self.current() {
+        let mut name = match self.current() {
             Token::Ident(s) => {
                 let n = s.clone();
                 self.advance();
@@ -115,10 +154,12 @@ impl Parser {
         assert!(self.eat(&Token::LeftSBracket));
 
         let mut body = vec![];
-        while self.current() != &Token::RightSBracket{
+        while self.current() != &Token::RightSBracket {
             body.push(self.parse_stmt());
         }
-
+        if name == "main" {
+            name = "_start".to_string();
+        }
         assert!(self.eat(&Token::RightSBracket));
         Stmt::Fn { name, body }
     }

@@ -72,8 +72,10 @@ impl Lexer {
     pub fn lex_number(&mut self, ch: char) -> Token {
         let mut ident = ch.to_string();
         while let Some(c) = self.peek() {
+            println!("c: {}", c);
             if c.is_ascii_digit() {
                 ident.push(c);
+                self.advance();
             } else {
                 break;
             }

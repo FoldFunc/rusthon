@@ -1,3 +1,4 @@
-function entry() {
-    return 0;
+function main() {
+    let x-> int32 = 10;
+    return 10;
 }
