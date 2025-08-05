@@ -12,7 +12,11 @@ pub enum Stmt {
     Var {
         name: String,
         typee: String,
-        val: i32,
+        val: String,
+    },
+    VarQuick {
+        name: String,
+        val: String,
     },
 }
 impl fmt::Display for Stmt {
@@ -38,6 +42,13 @@ impl Stmt {
                     f,
                     "{}Var:\n{}{}name:{}\n{}{}type:{}\n{}{}val:{}",
                     pad, pad, pad, name, pad, pad, typee, pad, pad, val
+                )?;
+            }
+            Stmt::VarQuick { name, val } => {
+                writeln!(
+                    f,
+                    "{}VarQuick:\n{}{}name:{}\n{}{}val:{}",
+                    pad, pad, pad, name, pad, pad, val
                 )?;
             }
         }
@@ -87,7 +98,20 @@ impl Ast {
                     val,
                 } => {
                     var_names.push(name.clone());
-                    asm_lines.push(format!("{}mov rax, {}", spaces, val));
+                    if val.parse::<char>().is_ok() && !val.parse::<i32>().is_ok() {
+                        asm_lines.push(format!("{}mov rax, '{}'", spaces, val));
+                    } else {
+                        asm_lines.push(format!("{}mov rax, {}", spaces, val));
+                    }
+                    asm_lines.push(format!("{}mov [{}], rax", spaces, name));
+                }
+                Stmt::VarQuick { name, val } => {
+                    var_names.push(name.clone());
+                    if val.parse::<char>().is_ok() && !val.parse::<i32>().is_ok() {
+                        asm_lines.push(format!("{}mov rax, '{}'", spaces, val));
+                    } else {
+                        asm_lines.push(format!("{}mov rax, {}", spaces, val));
+                    }
                     asm_lines.push(format!("{}mov [{}], rax", spaces, name));
                 }
                 _ => panic!("Invalid in function"),
@@ -196,9 +220,34 @@ impl Parser {
             }
             _ => panic!("Invalid var name"),
         };
+        if self.eat(&Token::AssignQuick) {
+            let val = match self.current() {
+                Token::Number(n) => {
+                    let nret = n.clone();
+                    self.advance();
+                    nret.to_string()
+                }
+                Token::Char(c) => {
+                    let ccar = c.clone();
+                    self.advance();
+                    ccar.to_string()
+                }
+                Token::LeftParent => {
+                    let rawdawg: i32 = self.parse_binary();
+                    rawdawg.to_string()
+                }
+                _ => panic!("Invalid value: {:?}", self.current()),
+            };
+            assert!(self.eat(&Token::SemiColon));
+            return Stmt::VarQuick {
+                name: name,
+                val: val,
+            };
+        }
         let typee = match self.current() {
             Token::Type(t) => match t {
                 Typees::Int32 => "int32".to_string(),
+                Typees::Char => "char".to_string(),
             },
             _ => panic!("Invalid type"),
         };
@@ -208,11 +257,16 @@ impl Parser {
             Token::Number(n) => {
                 let nret = n.clone();
                 self.advance();
-                nret
+                nret.to_string()
+            }
+            Token::Char(c) => {
+                let ccor = c.clone();
+                self.advance();
+                ccor.to_string()
             }
             Token::LeftParent => {
                 let rawdawg: i32 = self.parse_binary();
-                rawdawg
+                rawdawg.to_string()
             }
             _ => panic!("Invalid value: {:?}", self.current()),
         };

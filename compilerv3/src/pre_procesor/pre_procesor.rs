@@ -10,6 +10,9 @@ pub fn pre_proces(file: &String) -> Ast{
         if token == lexer::Token::EOF {
             break;
         }
+        if token == lexer::Token::Comment {
+            continue;
+        }
         tokens.push(token);
     }
     println!("Tokens: \n{:?}", tokens);

@@ -1,4 +1,11 @@
+~ This is a comment 
+  The entry point to the program is main function.
+  Every file that you will compile must have this function.
+~
+
 function main() {
-    let x -> int32 = (10 + 10 / 2 - 3 * 3); 
-    return x;
+    let x -> int32 = (10 + 10 / 2 - 3 * 3); ~ Comment ~
+    let y := 10;
+    let str -> char = 'h';
+    return str;
 }

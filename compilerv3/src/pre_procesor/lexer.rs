@@ -1,6 +1,9 @@
+use std::char;
+
 #[derive(Debug, PartialEq, Clone)]
 pub enum Typees {
     Int32,
+    Char,
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -14,13 +17,16 @@ pub enum Token {
     Return,
     SemiColon,
     Assign,
+    AssignQuick,
     Ident(String),
+    Char(char),
     Number(i32),
     Type(Typees),
     LeftParent,
     RightParent,
     LeftSBracket,
     RightSBracket,
+    Comment,
     EOF,
 }
 
@@ -59,10 +65,10 @@ impl Lexer {
 
     pub fn next_token(&mut self) -> Token {
         self.skip_white_space();
-
         match self.advance() {
             Some(ch) if ch.is_ascii_alphabetic() || ch == '_' => self.lex_ident(ch),
             Some(ch) if ch.is_ascii_digit() => self.lex_number(ch),
+            Some('\'') => self.lex_char(),
             Some(';') => Token::SemiColon,
             Some('+') => Token::Plus,
             Some('*') => Token::Mul,
@@ -72,6 +78,8 @@ impl Lexer {
             Some('{') => Token::LeftSBracket,
             Some('}') => Token::RightSBracket,
             Some('=') => Token::Assign,
+            Some('~') => self.lex_comment(),
+            Some(':') => self.lex_no_type(),
             Some('-') => {
                 if self.peek() == Some('>') {
                     self.advance(); // consume '>'
@@ -84,7 +92,46 @@ impl Lexer {
             Some(c) => panic!("Not supported token: {}", c),
         }
     }
-
+    pub fn lex_comment(&mut self) -> Token {
+        self.skip_white_space();
+        while let Some(c) = self.peek() {
+            println!("c: {}", c);
+            if c == '~' {
+                println!("break here you bozo");
+                break;
+            } else {
+                self.advance();
+                continue;
+            }
+        }
+        println!("return");
+        self.advance();
+        return Token::Comment;
+    }
+    pub fn lex_char(&mut self) -> Token {
+        let ch: char;
+        println!("self.peek: {}", self.peek().unwrap());
+        if self.peek().unwrap().is_alphanumeric() {
+            ch = self.peek().unwrap();
+            self.advance();
+            if self.peek().unwrap() != '\'' {
+                panic!("Char must be 1 character.");
+            }
+        } else {
+            panic!("Invalid in char");
+        }
+        self.advance();
+        return Token::Char(ch);
+    }
+    pub fn lex_no_type(&mut self) -> Token {
+        println!("self.peek(): {:?}", self.peek());
+        if self.peek().unwrap() != '=' {
+            panic!("Unsuported after ':': {:?}", self.peek());
+        } else {
+            self.advance();
+            return Token::AssignQuick;
+        }
+    }
     pub fn lex_type(&mut self) -> Token {
         self.skip_white_space();
         let mut ident = String::new();
@@ -98,6 +145,7 @@ impl Lexer {
         }
         match ident.as_str() {
             "int32" => Token::Type(Typees::Int32),
+            "char" => Token::Type(Typees::Char),
             _ => panic!("Invalid type"),
         }
     }
@@ -133,4 +181,3 @@ impl Lexer {
         Token::Number(ident.parse().unwrap())
     }
 }
-
