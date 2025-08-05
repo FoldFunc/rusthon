@@ -1,4 +1,4 @@
 function main() {
-    let x-> int32 = 10;
-    return 10;
+    let x -> int32 = (10 + 10 / 2 - 3 * 3); 
+    return x;
 }

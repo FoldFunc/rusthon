@@ -9,9 +9,6 @@ pub fn compile(ast: &Ast) -> Result<bool, Box<dyn Error>> {
         .create(true)
         .truncate(true)
         .open("out.asm")?;
-    writeln!(file, "global _start")?;
-    writeln!(file, "section .text")?;
-    writeln!(file, "_start:")?;
     for line in asm_lines {
         writeln!(file, "{}", line)?;
     }
