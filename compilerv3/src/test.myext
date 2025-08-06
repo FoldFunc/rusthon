@@ -9,11 +9,32 @@
   - return => calls exit with val (0 - 255).
   - function => adds a new function to assembly program.
 ~
+~
+  Syntax:
+  let <name> -> <type> = <val>;
+  let <name> :=  <val>;
+
+  update <name> -> <type> = <val>;
+  update <name> :=  <val>;
+
+  return <val>;
+
+  function <name> () {<stmts>}
+~
+~
+  Types:
+  - int32
+  - char
+  - string
+~
+~
+  Booleans:
+  (<val> + <val> - (<val> * <val>))
+~
 function main() {
-    let x -> int32 = (10 + 10 / 2 - 3 * 3); 
-    let y := 10;
-    let str -> char = 'h';
-    update x -> int32 = 40;
-    update x := 50;
-    return x;
+    let var1 -> int32 = 10;
+    let var2 -> int32 = 10;
+    let sign -> char = '+';
+    let var3 -> int32 = (var1 + var2);
+    return var3;
 }

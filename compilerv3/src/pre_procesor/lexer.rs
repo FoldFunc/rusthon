@@ -4,6 +4,7 @@ use std::char;
 pub enum Typees {
     Int32,
     Char,
+    Stringg,
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -20,6 +21,7 @@ pub enum Token {
     Assign,
     AssignQuick,
     Ident(String),
+    Stringg(String),
     Char(char),
     Number(i32),
     Type(Typees),
@@ -70,6 +72,7 @@ impl Lexer {
             Some(ch) if ch.is_ascii_alphabetic() || ch == '_' => self.lex_ident(ch),
             Some(ch) if ch.is_ascii_digit() => self.lex_number(ch),
             Some('\'') => self.lex_char(),
+            Some('\"') => self.lex_string(),
             Some(';') => Token::SemiColon,
             Some('+') => Token::Plus,
             Some('*') => Token::Mul,
@@ -109,10 +112,23 @@ impl Lexer {
         self.advance();
         return Token::Comment;
     }
+    pub fn lex_string(&mut self) -> Token {
+        let mut ident = String::new();
+        while let Some(c) = self.peek() {
+            if c.is_ascii_alphanumeric() || c == '_' || c == ' ' {
+                ident.push(c);
+                self.advance();
+            } else {
+                break;
+            }
+        }
+        self.advance();
+        return Token::Stringg(ident);
+    }
     pub fn lex_char(&mut self) -> Token {
         let ch: char;
         println!("self.peek: {}", self.peek().unwrap());
-        if self.peek().unwrap().is_alphanumeric() {
+        if self.peek().unwrap().is_ascii() {
             ch = self.peek().unwrap();
             self.advance();
             if self.peek().unwrap() != '\'' {
@@ -147,6 +163,7 @@ impl Lexer {
         match ident.as_str() {
             "int32" => Token::Type(Typees::Int32),
             "char" => Token::Type(Typees::Char),
+            "string" => Token::Type(Typees::Stringg),
             _ => panic!("Invalid type"),
         }
     }

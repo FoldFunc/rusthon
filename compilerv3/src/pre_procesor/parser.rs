@@ -90,6 +90,14 @@ impl fmt::Display for Ast {
         Ok(())
     }
 }
+pub fn find_var_offset(offset: &[(String, i32)], name: &str) -> i32 {
+    for (var_name, off) in offset {
+        if var_name == name {
+            return *off;
+        }
+    }
+    panic!("Variable '{}' out of scope", name);
+}
 impl Ast {
     pub fn new() -> Self {
         Ast { stmts: vec![] }
@@ -99,162 +107,108 @@ impl Ast {
         self.stmts.push(stmt);
     }
     pub fn codegen_into_fn(&self, stmts: &Vec<Stmt>) -> (Vec<String>, Vec<(String, i32)>) {
-        let mut offset: Vec<(String, i32)> = Vec::new();
+        let mut offset: Vec<(String, i32)> = Vec::new(); // var name -> offset relative to r12
         let mut asm_lines: Vec<String> = Vec::new();
         let spaces = " ".repeat(4);
+
         for stmt in stmts {
             match stmt {
                 Stmt::Ret { val } => {
-                    let mut offset_curret: i32 = -1;
-                    for (var_name, index) in &offset {
-                        if val.to_string() == var_name.to_string() {
-                            offset_curret = *index;
-                        }
-                    }
-                    if offset_curret == -1 {
-                        panic!("Var out of scope");
-                    }
-                    asm_lines.push(format!("{}xor rdi, rdi", spaces));
-                    if val.parse::<i32>().is_ok() {
-                        asm_lines.push(format!(
-                            "{}mov r13, qword [r12 + {}]",
-                            spaces, offset_curret
-                        ));
-                        asm_lines.push(format!("{}mov rdi, qword [r13]", spaces));
+                    // Check if val is immediate int
+                    if let Ok(immediate) = val.parse::<i32>() {
+                        asm_lines.push(format!("{}mov rdi, {}", spaces, immediate));
+                    } else if val.len() == 1 && !val.parse::<i32>().is_ok() {
+                        // Single char literal e.g. 'a'
+                        let c = val.chars().next().unwrap();
+                        asm_lines.push(format!("{}mov rdi, {}", spaces, c as u8));
                     } else {
-                        asm_lines.push(format!(
-                            "{}mov r13, qword [r12 + {}]",
-                            spaces, offset_curret
-                        ));
+                        // Variable: load pointer from [r12 + offset], then load value
+                        let var_offset = find_var_offset(&offset, val);
+                        asm_lines.push(format!("{}mov r13, qword [r12 + {}]", spaces, var_offset));
                         asm_lines.push(format!("{}mov rdi, qword [r13]", spaces));
                     }
                     asm_lines.push(format!("{}call exit", spaces));
                 }
-                Stmt::Var {
-                    name,
-                    typee: _,
-                    val,
-                } => {
-                    let index_last: i32;
-                    if let Some((_, index)) = offset.last() {
-                        index_last = *index;
-                    } else {
-                        index_last = -8
+
+                Stmt::Var { name, typee, val } => {
+                    // Determine next offset
+                    let last_offset = offset.last().map(|(_, off)| *off).unwrap_or(-8);
+                    let new_offset = last_offset + 8;
+                    offset.push((name.to_string(), new_offset));
+
+                    match typee.as_str() {
+                        "int32" => {
+                            asm_lines.push(format!("{}mov rdi, 8", spaces));
+                            asm_lines.push(format!("{}call malloc", spaces));
+                            asm_lines
+                                .push(format!("{}mov qword [r12 + {}], rax", spaces, new_offset));
+                            asm_lines.push(format!("{}mov qword [rax], {}", spaces, val));
+                        }
+                        "char" => {
+                            asm_lines.push(format!("{}mov rdi, 1", spaces)); // allocate 1 byte for char
+                            asm_lines.push(format!("{}call malloc", spaces));
+                            asm_lines
+                                .push(format!("{}mov qword [r12 + {}], rax", spaces, new_offset));
+                            let c = val.chars().next().expect("Char value expected");
+                            asm_lines.push(format!("{}mov byte [rax], {}", spaces, c as u8));
+                        }
+                        "string" => {
+                            let len = val.len() + 1; // +1 for null terminator
+                            asm_lines.push(format!("{}mov rdi, {}", spaces, len));
+                            asm_lines.push(format!("{}call malloc", spaces));
+                            asm_lines
+                                .push(format!("{}mov qword [r12 + {}], rax", spaces, new_offset));
+                            for (i, c) in val.chars().enumerate() {
+                                asm_lines
+                                    .push(format!("{}mov byte [rax + {}], {}", spaces, i, c as u8));
+                            }
+                            asm_lines.push(format!("{}mov byte [rax + {}], 0", spaces, val.len())); // null terminator
+                        }
+                        _ => panic!("Unsupported type '{}'", typee),
                     }
-                    offset.push((name.to_string(), index_last + 8));
-                    if val.parse::<char>().is_ok() && !val.parse::<i32>().is_ok() {
-                        asm_lines.push(format!("{}mov rdi, 8", spaces));
-                        asm_lines.push(format!("{}call malloc", spaces));
-                        asm_lines.push(format!(
-                            "{}mov qword [r12 + {}], rax",
-                            spaces,
-                            index_last + 8
-                        ));
-                        asm_lines.push(format!("{}mov qword [rax], '{}'", spaces, val));
-                    } else {
-                        asm_lines.push(format!("{}mov rdi, 8", spaces));
-                        asm_lines.push(format!("{}call malloc", spaces));
-                        asm_lines.push(format!(
-                            "{}mov qword [r12 + {}], rax",
-                            spaces,
-                            index_last + 8
-                        ));
-                        asm_lines.push(format!("{}mov qword [rax], {}", spaces, val));
-                    }
-                    println!("offset: {:?}", offset);
                 }
+
                 Stmt::VarQuick { name, val } => {
-                    let index_last: i32;
-                    if let Some((_, index)) = offset.last() {
-                        index_last = *index;
+                    // Quick let without type, guess from val
+                    let last_offset = offset.last().map(|(_, off)| *off).unwrap_or(-8);
+                    let new_offset = last_offset + 8;
+                    offset.push((name.to_string(), new_offset));
+
+                    if val.len() == 1 && !val.parse::<i32>().is_ok() {
+                        // Single char
+                        asm_lines.push(format!("{}mov rdi, 1", spaces));
+                        asm_lines.push(format!("{}call malloc", spaces));
+                        asm_lines.push(format!("{}mov qword [r12 + {}], rax", spaces, new_offset));
+                        let c = val.chars().next().unwrap();
+                        asm_lines.push(format!("{}mov byte [rax], {}", spaces, c as u8));
                     } else {
-                        index_last = -8
-                    }
-                    offset.push((name.to_string(), index_last + 8));
-                    if val.parse::<char>().is_ok() && !val.parse::<i32>().is_ok() {
+                        // Assume int32
                         asm_lines.push(format!("{}mov rdi, 8", spaces));
                         asm_lines.push(format!("{}call malloc", spaces));
-                        asm_lines.push(format!(
-                            "{}mov qword [r12 + {}], rax",
-                            spaces,
-                            index_last + 8
-                        ));
-                        asm_lines.push(format!("{}mov qword [rax], '{}'", spaces, val));
-                    } else {
-                        asm_lines.push(format!("{}mov rdi, 8", spaces));
-                        asm_lines.push(format!("{}call malloc", spaces));
-                        asm_lines.push(format!(
-                            "{}mov qword [r12 + {}], rax",
-                            spaces,
-                            index_last + 8
-                        ));
+                        asm_lines.push(format!("{}mov qword [r12 + {}], rax", spaces, new_offset));
                         asm_lines.push(format!("{}mov qword [rax], {}", spaces, val));
                     }
-                    println!("offset: {:?}", offset);
                 }
-                Stmt::ReVar {
-                    name,
-                    typee: _,
-                    val,
-                } => {
-                    let mut index_current: i32 = -1;
-                    for (name_in, index) in &offset {
-                        if *name_in == *name {
-                            index_current = *index;
-                        }
-                    }
-                    if index_current == -1 {
-                        panic!("Val not in heap");
-                    }
-                    println!("current index: {}", index_current);
-                    if val.parse::<char>().is_ok() && !val.parse::<i32>().is_ok() {
-                        asm_lines.push(format!(
-                            "{}mov r13, qword [r12 + {}]",
-                            spaces, index_current
-                        ));
-                        asm_lines.push(format!("{}mov qword [r13], '{}'", spaces, val));
+
+                Stmt::ReVar { name, val, .. } | Stmt::ReVarQuick { name, val } => {
+                    let var_offset = find_var_offset(&offset, name);
+                    if val.len() == 1 && !val.parse::<i32>().is_ok() {
+                        // Char update
+                        asm_lines.push(format!("{}mov r13, qword [r12 + {}]", spaces, var_offset));
+                        let c = val.chars().next().unwrap();
+                        asm_lines.push(format!("{}mov byte [r13], {}", spaces, c as u8));
                     } else {
-                        asm_lines.push(format!(
-                            "{}mov r13, qword [r12 + {}]",
-                            spaces, index_current
-                        ));
+                        // Int update
+                        asm_lines.push(format!("{}mov r13, qword [r12 + {}]", spaces, var_offset));
                         asm_lines.push(format!("{}mov qword [r13], {}", spaces, val));
                     }
-                    println!("offset: {:?}", offset);
                 }
-                Stmt::ReVarQuick {
-                    name,
-                    val,
-                } => {
-                    let mut index_current: i32 = -1;
-                    for (name_in, index) in &offset {
-                        if *name_in == *name {
-                            index_current = *index;
-                        }
-                    }
-                    if index_current == -1 {
-                        panic!("Val not in heap");
-                    }
-                    println!("current index: {}", index_current);
-                    if val.parse::<char>().is_ok() && !val.parse::<i32>().is_ok() {
-                        asm_lines.push(format!(
-                            "{}mov r13, qword [r12 + {}]",
-                            spaces, index_current
-                        ));
-                        asm_lines.push(format!("{}mov qword [r13], '{}'", spaces, val));
-                    } else {
-                        asm_lines.push(format!(
-                            "{}mov r13, qword [r12 + {}]",
-                            spaces, index_current
-                        ));
-                        asm_lines.push(format!("{}mov qword [r13], {}", spaces, val));
-                    }
-                    println!("offset: {:?}", offset);
-                }
-                _ => panic!("Invalid in function"),
+
+                _ => panic!("Unsupported statement in function"),
             }
         }
-        return (asm_lines, offset);
+
+        (asm_lines, offset)
     }
     pub fn codegen(&self) -> Vec<String> {
         let mut asm_lines: Vec<String> = vec![
@@ -288,6 +242,7 @@ impl Ast {
 pub struct Parser {
     tokens: Vec<Token>,
     position: usize,
+    vars: Vec<(String, String)>,
 }
 
 impl Parser {
@@ -295,6 +250,7 @@ impl Parser {
         Parser {
             tokens,
             position: 0,
+            vars: Vec::new(),
         }
     }
 
@@ -324,6 +280,10 @@ impl Parser {
                 let v = *n;
                 self.advance();
                 v.to_string()
+            }
+            Token::LeftParent => {
+                let rawdawg: i32 = self.parse_binary();
+                rawdawg.to_string()
             }
             Token::Ident(s) => {
                 let v = s.clone();
@@ -367,6 +327,7 @@ impl Parser {
                 _ => panic!("Invalid value: {:?}", self.current()),
             };
             assert!(self.eat(&Token::SemiColon));
+            self.vars.push((name.clone(), val.clone()));
             return Stmt::VarQuick {
                 name: name,
                 val: val,
@@ -376,6 +337,7 @@ impl Parser {
             Token::Type(t) => match t {
                 Typees::Int32 => "int32".to_string(),
                 Typees::Char => "char".to_string(),
+                Typees::Stringg => "string".to_string(),
             },
             _ => panic!("Invalid type"),
         };
@@ -392,6 +354,11 @@ impl Parser {
                 self.advance();
                 ccor.to_string()
             }
+            Token::Stringg(s) => {
+                let sret = s.clone();
+                self.advance();
+                sret.to_string()
+            }
             Token::LeftParent => {
                 let rawdawg: i32 = self.parse_binary();
                 rawdawg.to_string()
@@ -399,6 +366,7 @@ impl Parser {
             _ => panic!("Invalid value: {:?}", self.current()),
         };
         assert!(self.eat(&Token::SemiColon));
+        self.vars.push((name.clone(), val.clone()));
         return Stmt::Var {
             name: name,
             typee: typee,
@@ -445,6 +413,19 @@ impl Parser {
             Token::Number(n) => {
                 self.advance();
                 n
+            }
+            Token::Ident(s) => {
+                self.advance();
+                let mut curr_val: i32 = -1;
+                for (name, val) in self.vars.to_vec() {
+                    if name == s {
+                        curr_val = val.parse::<i32>().unwrap();
+                    }
+                }
+                if curr_val == -1 {
+                    panic!("No such variable");
+                }
+                curr_val
             }
             Token::LeftParent => {
                 self.advance();
@@ -511,6 +492,7 @@ impl Parser {
                 _ => panic!("Invalid value: {:?}", self.current()),
             };
             assert!(self.eat(&Token::SemiColon));
+            self.vars.push((name.clone(), val.clone()));
             return Stmt::ReVarQuick {
                 name: name,
                 val: val,
@@ -520,6 +502,7 @@ impl Parser {
             Token::Type(t) => match t {
                 Typees::Int32 => "int32".to_string(),
                 Typees::Char => "char".to_string(),
+                Typees::Stringg => "string".to_string(),
             },
             _ => panic!("Invalid type"),
         };
@@ -543,7 +526,12 @@ impl Parser {
             _ => panic!("Invalid value: {:?}", self.current()),
         };
         assert!(self.eat(&Token::SemiColon));
-        return Stmt::ReVar { name: name, typee: typee, val: val };
+        self.vars.push((name.clone(), val.clone()));
+        return Stmt::ReVar {
+            name: name,
+            typee: typee,
+            val: val,
+        };
     }
     fn parse_stmt(&mut self) -> Stmt {
         match self.current() {
