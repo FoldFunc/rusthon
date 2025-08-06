@@ -1,12 +1,28 @@
+extern malloc
+extern exit
 global _start
+
 section .text
 _start:
-    mov rax, 10
-    mov [x], rax
-    xor rax, rax
-    mov rdi, [x]
-    mov rax, 60
-    syscall
+    ; Allocate space for variable table: 1000 * 8 bytes = 8000 bytes
+    mov rdi, 8000
+    call malloc
+    mov r12, rax       ; r12 = pointer to variable table
 
-section .bss
-x: resq 1
+    ; Allocate 8 bytes for variable x
+    mov rdi, 8
+    call malloc
+    mov qword [r12 + 0], rax     ; var[0] = pointer to x
+    mov qword [rax], 6           ; *x = 6
+
+    ; Allocate 8 bytes for variable y
+    mov rdi, 8
+    call malloc
+    mov qword [r12 + 8], rax     ; var[1] = pointer to y
+    mov qword [rax], 10          ; *y = 10
+
+    ; Read x value into rdi
+    mov r13, qword [r12 + 0]     ; load pointer to x
+    mov rdi, qword [r13]         ; load value of x
+    call exit
+

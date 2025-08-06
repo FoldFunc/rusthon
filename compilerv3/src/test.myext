@@ -2,10 +2,18 @@
   The entry point to the program is main function.
   Every file that you will compile must have this function.
 ~
-
+~
+  Availeble key words:
+  - let => assigns variable on heap, 2 variations: strong with type and quick with only val.
+  - update => update variable on heap, you can change type.
+  - return => calls exit with val (0 - 255).
+  - function => adds a new function to assembly program.
+~
 function main() {
-    let x -> int32 = (10 + 10 / 2 - 3 * 3); ~ Comment ~
+    let x -> int32 = (10 + 10 / 2 - 3 * 3); 
     let y := 10;
     let str -> char = 'h';
-    return str;
+    update x -> int32 = 40;
+    update x := 50;
+    return x;
 }

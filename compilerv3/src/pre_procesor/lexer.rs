@@ -13,6 +13,7 @@ pub enum Token {
     Mul,
     Div,
     Func_Decl,
+    Var_Update,
     Var_Decl,
     Return,
     SemiColon,
@@ -164,6 +165,7 @@ impl Lexer {
             "function" => Token::Func_Decl,
             "return" => Token::Return,
             "let" => Token::Var_Decl,
+            "update" => Token::Var_Update,
             c => Token::Ident(c.to_string()),
         }
     }
