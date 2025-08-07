@@ -164,6 +164,13 @@ impl Ast {
                             }
                             asm_lines.push(format!("{}mov byte [rax + {}], 0", spaces, val.len())); // null terminator
                         }
+                        "boolean" => {
+                            asm_lines.push(format!("{}mov rdi, 1", spaces));
+                            asm_lines.push(format!("{}call malloc", spaces));
+                            asm_lines
+                                .push(format!("{}mov qword [r12 + {}], rax", spaces, new_offset));
+                            asm_lines.push(format!("{}mov qword [rax], {}", spaces, val));
+                        }
                         "list<Int32>" => {
                             let list_val: Vec<i32> = val
                                 .split_whitespace()
@@ -257,7 +264,7 @@ impl Ast {
         return asm_lines;
     }
 }
-
+#[derive(Clone)]
 pub struct Parser {
     tokens: Vec<Token>,
     position: usize,
@@ -329,6 +336,21 @@ impl Parser {
         };
         if self.eat(&Token::AssignQuick) {
             let val = match self.current() {
+                Token::Ident(s) => {
+                    let mut rval = " ".to_string();
+                    for (name, val) in &self.vars {
+                        if &s == &name {
+                            rval = val.to_string();
+                        } else {
+                            continue;
+                        }
+                    }
+                    if rval == " " {
+                        panic!("Invlaid var name");
+                    }
+                    self.advance();
+                    rval.to_string()
+                }
                 Token::Number(n) => {
                     let nret = n.clone();
                     self.advance();
@@ -357,6 +379,7 @@ impl Parser {
                 Typees::Int32 => "int32".to_string(),
                 Typees::Char => "char".to_string(),
                 Typees::Stringg => "string".to_string(),
+                Typees::Boolean => "boolean".to_string(),
                 Typees::List(n) => format!("list<{:?}>", n),
             },
             _ => panic!("Invalid type"),
@@ -429,7 +452,7 @@ impl Parser {
             }
             _ => panic!("Invalid value: {:?}", self.current()),
         };
-        println!("self.current() parser: {:?}", self.current());
+        println!("self.eat val: {:?}", self.current());
         assert!(self.eat(&Token::SemiColon));
         self.vars.push((name.clone(), val.clone()));
         return Stmt::Var {
@@ -438,9 +461,69 @@ impl Parser {
             val: val,
         };
     }
-
+    pub fn double_is(&mut self) -> bool {
+        let mut tmp = self.clone();
+        let mut is = false;
+        while tmp.current() != &Token::RightParent {
+            match tmp.current() {
+                Token::DoubleIs => is = true,
+                _ => is = is,
+            }
+            tmp.advance();
+        }
+        println!("is double?: {}", is);
+        return is;
+    }
+    pub fn parse_binary_good(&mut self) -> i32 {
+        let mut if_ret = 1; // 1 - false, 0 - true 
+        let mut first = String::new();
+        let mut second = String::new();
+        let mut change = false;
+        self.advance();
+        while self.current() != &Token::RightParent {
+            match self.current() {
+                Token::Number(n) if change == false => first.push_str(&n.to_string()),
+                Token::Number(n) => second.push_str(&n.to_string()),
+                Token::Ident(s) if change == false => first.push_str(s),
+                Token::Ident(s) => second.push_str(s),
+                Token::DoubleIs => change = true,
+                t => panic!("invalid in if: t: {:?}", t),
+            }
+            self.advance();
+        }
+        if !first.parse::<i32>().is_ok() {
+            for (name, val) in &self.vars {
+                if first == name.to_string() {
+                    first = val.to_string();
+                } else {
+                    continue;
+                }
+            }
+        }
+        if !second.parse::<i32>().is_ok() {
+            for (name, val) in &self.vars {
+                if second == name.to_string() {
+                    second = val.to_string();
+                } else {
+                    continue;
+                }
+            }
+        }
+        if first.parse::<i32>() == second.parse::<i32>() {
+            if_ret = 0;
+        } else {
+            if_ret = 1;
+        }
+        self.advance();
+        return if_ret;
+    }
     fn parse_binary(&mut self) -> i32 {
-        self.parse_expr()
+        println!("self.current parse binary: {:?}", self.current());
+        if self.double_is() {
+            self.parse_binary_good()
+        } else {
+            self.parse_expr()
+        }
     }
 
     fn parse_expr(&mut self) -> i32 {
@@ -568,6 +651,7 @@ impl Parser {
                 Typees::Int32 => "int32".to_string(),
                 Typees::Char => "char".to_string(),
                 Typees::Stringg => "string".to_string(),
+                Typees::Boolean => "boolean".to_string(),
                 Typees::List(n) => format!("list<{:?}>", n),
             },
             _ => panic!("Invalid type"),

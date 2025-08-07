@@ -5,6 +5,7 @@ pub enum Typees {
     Int32,
     Char,
     Stringg,
+    Boolean,
     List(Box<Typees>),
 }
 
@@ -20,6 +21,7 @@ pub enum Token {
     Return,
     SemiColon,
     Assign,
+    DoubleIs,
     AssignQuick,
     Ident(String),
     Stringg(String),
@@ -70,7 +72,6 @@ impl Lexer {
 
     pub fn next_token(&mut self) -> Token {
         self.skip_white_space();
-        println!("self.peek(): {:?}", self.peek());
         match self.advance() {
             Some(ch) if ch.is_ascii_alphabetic() || ch == '_' => self.lex_ident(ch),
             Some(ch) if ch.is_ascii_digit() => self.lex_number(ch),
@@ -85,7 +86,14 @@ impl Lexer {
             Some('{') => Token::LeftSBracket,
             Some('}') => Token::RightSBracket,
             Some('[') => self.lex_list(),
-            Some('=') => Token::Assign,
+            Some('=') => {
+                if self.peek() == Some('=') {
+                    self.advance();
+                    Token::DoubleIs
+                }else {
+                    Token::Assign
+                }
+            },
             Some('~') => self.lex_comment(),
             Some(':') => self.lex_no_type(),
             Some('-') => {
@@ -112,7 +120,6 @@ impl Lexer {
                 self.advance(); // end of list
                 break;
             }
-            println!("self.peek() no right paren: {:?}", self.peek());
             match self.peek() {
                 Some(ch) if ch.is_ascii_digit() => {
                     arr.push(self.lex_number_list());
@@ -221,9 +228,9 @@ impl Lexer {
         if list_type == " " && ident == "list" {
             panic!("No list type");
         }
-        println!("list_type: {}", list_type);
         match ident.as_str() {
             "int32" => Token::Type(Typees::Int32),
+            "boolean" => Token::Type(Typees::Boolean),
             "char" => Token::Type(Typees::Char),
             "string" => Token::Type(Typees::Stringg),
             "list" => Token::Type(Typees::List(match list_type.as_str() {
@@ -240,7 +247,6 @@ impl Lexer {
         self.advance();
         let mut ident = String::new();
         while let Some(c) = self.peek() {
-            println!("{}", c);
             if c == '>' {
                 break;
             } else {
