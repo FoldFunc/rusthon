@@ -1,6 +1,5 @@
 use crate::pre_procesor::ir;
 use crate::pre_procesor::lexer;
-use crate::pre_procesor::lexer::Token;
 use crate::pre_procesor::parser;
 use crate::pre_procesor::parser::Ast;
 pub fn pre_proces(file: &String) -> Ast {
@@ -22,8 +21,8 @@ pub fn pre_proces(file: &String) -> Ast {
     println!("\n");
     let mut parser = parser::Parser::new(tokens.to_vec());
     let ast = parser.parse();
+    let _intermedate = ir::IrGen::new(ast.clone()); // For now no use there is no complexe things
     println!("AST debug:\n{:?}", &ast);
     println!("AST:\n{}", &ast);
-    let _intermedate = ir::IrGen::new(ast.clone()); // For now no use there is no complexe things
     return ast;
 }

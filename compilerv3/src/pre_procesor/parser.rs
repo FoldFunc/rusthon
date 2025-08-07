@@ -1,8 +1,11 @@
 use crate::pre_procesor::lexer::{Token, Typees};
-use std::{env::var, fmt, mem::offset_of};
-#[derive(Debug, Clone)]
+use std::fmt;
+#[derive(Debug, Clone, PartialEq)]
 pub enum Stmt {
     Empty,
+    Condition {
+        body: Vec<Stmt>,
+    },
     Fn {
         name: String,
         body: Vec<Stmt>,
@@ -65,6 +68,12 @@ impl Stmt {
             }
             Stmt::Else { body } => {
                 writeln!(f, "{}Else:", pad)?;
+                for stmt in body {
+                    stmt.fmt_with_indent(f, ident + 1)?;
+                }
+            }
+            Stmt::Condition { body } => {
+                writeln!(f, "{}Condition:", pad)?;
                 for stmt in body {
                     stmt.fmt_with_indent(f, ident + 1)?;
                 }
@@ -135,7 +144,20 @@ impl Ast {
     pub fn new() -> Self {
         Ast { stmts: vec![] }
     }
-
+    pub fn remove(&mut self, stmt: &Stmt) {
+        let mut position: i32 = -1;
+        for i in &self.stmts {
+            if i == stmt {
+                position += 1;
+            } else {
+                continue;
+            }
+        }
+        if position == -1 {
+            panic!("No such stmt");
+        }
+        self.stmts.remove(position as usize);
+    }
     pub fn push(&mut self, stmt: Stmt) {
         self.stmts.push(stmt);
     }
@@ -269,7 +291,14 @@ impl Ast {
                         asm_lines.push(format!("{}mov qword [r13], {}", spaces, val));
                     }
                 }
-                Stmt::If { condition, body } => {}
+                Stmt::Condition { body } => {
+                    asm_lines.push(format!("{}jmp {}", spaces, "cond"));
+                    asm_lines.push(format!("{}:", "cond"));
+                    let (add_lines, _offset) = self.codegen_into_fn(body);
+                    for line in add_lines {
+                        asm_lines.push(line);
+                    }
+                }
                 _ => panic!("Unsupported statement in function"),
             }
         }
@@ -290,11 +319,12 @@ impl Ast {
                     asm_lines.push(format!("{}mov rdi, 1024", " ".repeat(4)));
                     asm_lines.push(format!("{}call malloc", " ".repeat(4)));
                     asm_lines.push(format!("{}mov r12, rax", " ".repeat(4)));
-                    let (add_lines, offset) = self.codegen_into_fn(body);
+                    let (add_lines, _offset) = self.codegen_into_fn(body);
                     for line in add_lines {
                         asm_lines.push(line);
                     }
                 }
+
                 _ => panic!("Not implemented yet."),
             }
         }
@@ -780,10 +810,8 @@ impl Parser {
             body.push(self.parse_stmt());
         }
         self.expect(Token::RightSBracket); // Expect '}'
-
         Stmt::Else { body }
     }
-
     pub fn parse_stmt(&mut self) -> Stmt {
         println!("self.prev: {:?}", self.prev());
         println!("self.current: {:?}", self.current());
@@ -805,6 +833,57 @@ impl Parser {
             let stmt = self.parse_stmt();
             self.ast.push(stmt);
         }
-        return self.ast.clone();
+
+        for stmt in &mut self.ast.stmts {
+            if let Stmt::Fn { body, .. } = stmt {
+                let mut pruned = vec![];
+                let mut i = 0;
+                let mut taken = false;
+
+                while i < body.len() {
+                    match &body[i] {
+                        Stmt::If {
+                            condition,
+                            body: inner,
+                        } if *condition && !taken => {
+                            pruned.push(Stmt::Condition {
+                                body: inner.clone(),
+                            });
+                            taken = true;
+                        }
+                        Stmt::Elif {
+                            condition,
+                            body: inner,
+                        } if *condition && !taken => {
+                            pruned.push(Stmt::Condition {
+                                body: inner.clone(),
+                            });
+                            taken = true;
+                        }
+                        Stmt::Else { body: inner } if !taken => {
+                            pruned.push(Stmt::Condition {
+                                body: inner.clone(),
+                            });
+                            taken = true;
+                        }
+                        _ => {
+                            // only keep non-conditional statements
+                            if !matches!(
+                                body[i],
+                                Stmt::If { .. } | Stmt::Elif { .. } | Stmt::Else { .. }
+                            ) {
+                                pruned.push(body[i].clone());
+                            }
+                        }
+                    }
+                    i += 1;
+                }
+
+                *body = pruned;
+            }
+        }
+
+        println!("self.ast:\n{}", self.ast);
+        self.ast.clone()
     }
 }

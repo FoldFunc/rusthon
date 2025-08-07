@@ -14,9 +14,10 @@ _start:
     call malloc
     mov qword [r12 + 0], rax     ; var[0] = pointer to x
     mov qword [rax], 6           ; *x = 6
-    
-    
-
+cond:
+    mov rax, 10
+    cmp 10, 10 
+    je cond
     mov r13, qword [r12 + 0]     ; load pointer to x
     mov rdi, qword [r13]         ; load value of x
     call exit
