@@ -306,3 +306,11 @@ impl Lexer {
         Token::Number(ident.parse().unwrap())
     }
 }
+pub fn find_var_offset(offset: &[(String, i32)], name: &str) -> i32 {
+    for (var_name, off) in offset {
+        if var_name == name {
+            return *off;
+        }
+    }
+    panic!("Variable '{}' out of scope", name);
+}

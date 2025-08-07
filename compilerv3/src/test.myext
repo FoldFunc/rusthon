@@ -33,13 +33,12 @@
 ~
 function main() {
     let x -> int32 = 2;
-    let y -> int32 = 2;
-    let y_plus -> int32 = 3;
+    let y -> int32 = 3;
     if (x == y) {
-        return 0;
-    } elseif (x == 2) {
-        return 10;
+        let z -> int32 = 1;
+        return z;
     } else {
-        return 1;
+        let x -> int32 = 2;
+        return x;
     }
 }
