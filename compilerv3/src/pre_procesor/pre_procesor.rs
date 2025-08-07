@@ -1,8 +1,9 @@
 use crate::pre_procesor::ir;
 use crate::pre_procesor::lexer;
+use crate::pre_procesor::lexer::Token;
 use crate::pre_procesor::parser;
 use crate::pre_procesor::parser::Ast;
-pub fn pre_proces(file: &String) -> Ast{
+pub fn pre_proces(file: &String) -> Ast {
     let mut tokens = Vec::new();
     let mut lexer = lexer::Lexer::new(file);
     loop {
@@ -15,7 +16,10 @@ pub fn pre_proces(file: &String) -> Ast{
         }
         tokens.push(token);
     }
-    println!("Tokens: \n{:?}", tokens);
+    for token in &tokens {
+        println!("token: {:?}", token);
+    }
+    println!("\n");
     let mut parser = parser::Parser::new(tokens.to_vec());
     let ast = parser.parse();
     println!("AST debug:\n{:?}", &ast);

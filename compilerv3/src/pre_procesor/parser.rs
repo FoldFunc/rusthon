@@ -2,8 +2,20 @@ use crate::pre_procesor::lexer::{Token, Typees};
 use std::{env::var, fmt, mem::offset_of};
 #[derive(Debug, Clone)]
 pub enum Stmt {
+    Empty,
     Fn {
         name: String,
+        body: Vec<Stmt>,
+    },
+    If {
+        condition: bool, // 0 - do, 1 - no do
+        body: Vec<Stmt>,
+    },
+    Elif {
+        condition: bool, // 0 - do, 1 - no do
+        body: Vec<Stmt>,
+    },
+    Else {
         body: Vec<Stmt>,
     },
     ReVar {
@@ -37,6 +49,26 @@ impl Stmt {
     fn fmt_with_indent(&self, f: &mut fmt::Formatter<'_>, ident: usize) -> fmt::Result {
         let pad = "  ".repeat(ident);
         match self {
+            Stmt::If { condition, body } => {
+                writeln!(f, "{}If:", pad)?;
+                writeln!(f, "{}{}Condition: {}", pad, pad, condition)?;
+                for stmt in body {
+                    stmt.fmt_with_indent(f, ident + 1)?;
+                }
+            }
+            Stmt::Elif { condition, body } => {
+                writeln!(f, "{}Elif:", pad)?;
+                writeln!(f, "{}{}Condition: {}", pad, pad, condition)?;
+                for stmt in body {
+                    stmt.fmt_with_indent(f, ident + 1)?;
+                }
+            }
+            Stmt::Else { body } => {
+                writeln!(f, "{}Else:", pad)?;
+                for stmt in body {
+                    stmt.fmt_with_indent(f, ident + 1)?;
+                }
+            }
             Stmt::Fn { name, body } => {
                 writeln!(f, "{}Fn: {}", pad, name)?;
                 for stmt in body {
@@ -74,6 +106,7 @@ impl Stmt {
                     pad, pad, pad, name, pad, pad, typee, pad, pad, val
                 )?;
             }
+            _ => writeln!(f, " ")?,
         }
         Ok(())
     }
@@ -105,6 +138,13 @@ impl Ast {
 
     pub fn push(&mut self, stmt: Stmt) {
         self.stmts.push(stmt);
+    }
+    pub fn len(&self) -> i32 {
+        self.stmts.len() as i32
+    }
+    pub fn last(&self) -> Stmt {
+        let ret = self.stmts.get(self.stmts.len()).unwrap();
+        return ret.clone();
     }
     pub fn codegen_into_fn(&self, stmts: &Vec<Stmt>) -> (Vec<String>, Vec<(String, i32)>) {
         let mut offset: Vec<(String, i32)> = Vec::new(); // var name -> offset relative to r12
@@ -229,7 +269,7 @@ impl Ast {
                         asm_lines.push(format!("{}mov qword [r13], {}", spaces, val));
                     }
                 }
-
+                Stmt::If { condition, body } => {}
                 _ => panic!("Unsupported statement in function"),
             }
         }
@@ -269,6 +309,7 @@ pub struct Parser {
     tokens: Vec<Token>,
     position: usize,
     vars: Vec<(String, String)>,
+    ast: Ast,
 }
 
 impl Parser {
@@ -277,9 +318,30 @@ impl Parser {
             tokens,
             position: 0,
             vars: Vec::new(),
+            ast: Ast::new(),
         }
     }
+    fn expect(&mut self, expected: Token) {
+        if self.current() != &expected {
+            panic!("Expected {:?}, found {:?}", expected, self.current());
+        }
+        self.advance();
+    }
 
+    fn prev(&self) -> &Token {
+        if self.position >= 1 {
+            self.tokens.get(self.position - 1).unwrap_or(&Token::EOF)
+        } else {
+            return &Token::EOF;
+        }
+    }
+    fn next(&self) -> &Token {
+        if self.position < self.tokens.len() {
+            self.tokens.get(self.position + 1).unwrap_or(&Token::EOF)
+        } else {
+            return &Token::EOF;
+        }
+    }
     fn current(&self) -> &Token {
         self.tokens.get(self.position).unwrap_or(&Token::EOF)
     }
@@ -434,6 +496,7 @@ impl Parser {
                                 tokens: l[i..].to_vec(), // Clone from current list index
                                 position: 0,
                                 vars: self.vars.clone(),
+                                ast: Ast::new(),
                             };
                             let value = subparser.parse_binary();
                             lret.push_str(&value.to_string());
@@ -452,7 +515,6 @@ impl Parser {
             }
             _ => panic!("Invalid value: {:?}", self.current()),
         };
-        println!("self.eat val: {:?}", self.current());
         assert!(self.eat(&Token::SemiColon));
         self.vars.push((name.clone(), val.clone()));
         return Stmt::Var {
@@ -471,7 +533,6 @@ impl Parser {
             }
             tmp.advance();
         }
-        println!("is double?: {}", is);
         return is;
     }
     pub fn parse_binary_good(&mut self) -> i32 {
@@ -518,7 +579,6 @@ impl Parser {
         return if_ret;
     }
     fn parse_binary(&mut self) -> i32 {
-        println!("self.current parse binary: {:?}", self.current());
         if self.double_is() {
             self.parse_binary_good()
         } else {
@@ -683,21 +743,68 @@ impl Parser {
             val: val,
         };
     }
-    fn parse_stmt(&mut self) -> Stmt {
+    pub fn parse_if(&mut self) -> Stmt {
+        self.advance(); // Skip 'if'
+        let condition = self.parse_binary() == 0;
+
+        self.expect(Token::LeftSBracket); // Expect '{'
+        let mut body = vec![];
+        while self.current() != &Token::RightSBracket {
+            body.push(self.parse_stmt());
+        }
+        self.expect(Token::RightSBracket); // Expect '}'
+
+        Stmt::If { condition, body }
+    }
+
+    pub fn parse_elif(&mut self) -> Stmt {
+        self.advance(); // Skip 'elif'
+        let condition = self.parse_binary() == 0;
+
+        self.expect(Token::LeftSBracket); // Expect '{'
+        let mut body = vec![];
+        while self.current() != &Token::RightSBracket {
+            body.push(self.parse_stmt());
+        }
+        self.expect(Token::RightSBracket); // Expect '}'
+
+        Stmt::Elif { condition, body }
+    }
+
+    pub fn parse_else(&mut self) -> Stmt {
+        self.advance(); // Skip 'else'
+
+        self.expect(Token::LeftSBracket); // Expect '{'
+        let mut body = vec![];
+        while self.current() != &Token::RightSBracket {
+            body.push(self.parse_stmt());
+        }
+        self.expect(Token::RightSBracket); // Expect '}'
+
+        Stmt::Else { body }
+    }
+
+    pub fn parse_stmt(&mut self) -> Stmt {
+        println!("self.prev: {:?}", self.prev());
+        println!("self.current: {:?}", self.current());
+        println!("self.next: {:?}", self.next());
+
         match self.current() {
             Token::Return => self.parse_return(),
             Token::Func_Decl => self.parse_fn(),
             Token::Var_Decl => self.parse_var_decl(),
             Token::Var_Update => self.parse_var_re_decl(),
+            Token::If => self.parse_if(),
+            Token::Elif => self.parse_elif(),
+            Token::Else => self.parse_else(),
             _ => panic!("Unexpected token: {:?}", self.current()),
         }
     }
     pub fn parse(&mut self) -> Ast {
-        let mut ast = Ast::new();
         while self.current() != &Token::EOF {
             let stmt = self.parse_stmt();
-            ast.push(stmt);
+            self.ast.push(stmt);
         }
-        ast
+        return self.ast.clone();
     }
 }

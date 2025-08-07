@@ -14,14 +14,9 @@ _start:
     call malloc
     mov qword [r12 + 0], rax     ; var[0] = pointer to x
     mov qword [rax], 6           ; *x = 6
+    
+    
 
-    ; Allocate 8 bytes for variable y
-    mov rdi, 8
-    call malloc
-    mov qword [r12 + 8], rax     ; var[1] = pointer to y
-    mov qword [rax], 10          ; *y = 10
-
-    ; Read x value into rdi
     mov r13, qword [r12 + 0]     ; load pointer to x
     mov rdi, qword [r13]         ; load value of x
     call exit

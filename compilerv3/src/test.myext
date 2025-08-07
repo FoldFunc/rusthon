@@ -34,7 +34,8 @@
 function main() {
     let x -> int32 = 2;
     let y -> int32 = 2;
-    if (x == y) {
+    let y_plus -> int32 = 3;
+    if (x == y_plus) {
         return 0;
     } elseif (x == 10) {
         return 10;

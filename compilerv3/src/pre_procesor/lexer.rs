@@ -23,6 +23,9 @@ pub enum Token {
     Assign,
     DoubleIs,
     AssignQuick,
+    If,
+    Elif,
+    Else,
     Ident(String),
     Stringg(String),
     Char(char),
@@ -272,6 +275,9 @@ impl Lexer {
             "return" => Token::Return,
             "let" => Token::Var_Decl,
             "update" => Token::Var_Update,
+            "if" => Token::If,
+            "elseif" => Token::Elif,
+            "else" => Token::Else,
             c => Token::Ident(c.to_string()),
         }
     }
