@@ -5,6 +5,7 @@ pub enum Typees {
     Int32,
     Char,
     Stringg,
+    List(Box<Typees>),
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -24,6 +25,7 @@ pub enum Token {
     Stringg(String),
     Char(char),
     Number(i32),
+    List(Vec<Token>),
     Type(Typees),
     LeftParent,
     RightParent,
@@ -68,6 +70,7 @@ impl Lexer {
 
     pub fn next_token(&mut self) -> Token {
         self.skip_white_space();
+        println!("self.peek(): {:?}", self.peek());
         match self.advance() {
             Some(ch) if ch.is_ascii_alphabetic() || ch == '_' => self.lex_ident(ch),
             Some(ch) if ch.is_ascii_digit() => self.lex_number(ch),
@@ -81,6 +84,7 @@ impl Lexer {
             Some('(') => Token::LeftParent,
             Some('{') => Token::LeftSBracket,
             Some('}') => Token::RightSBracket,
+            Some('[') => self.lex_list(),
             Some('=') => Token::Assign,
             Some('~') => self.lex_comment(),
             Some(':') => self.lex_no_type(),
@@ -96,19 +100,71 @@ impl Lexer {
             Some(c) => panic!("Not supported token: {}", c),
         }
     }
+    pub fn lex_list(&mut self) -> Token {
+        self.skip_white_space();
+
+        let mut arr: Vec<Token> = Vec::new();
+
+        loop {
+            self.skip_white_space();
+
+            if let Some(']') = self.peek() {
+                self.advance(); // end of list
+                break;
+            }
+            println!("self.peek() no right paren: {:?}", self.peek());
+            match self.peek() {
+                Some(ch) if ch.is_ascii_digit() => {
+                    arr.push(self.lex_number_list());
+                }
+                Some('(') => {
+                    self.advance();
+                    arr.push(Token::LeftParent);
+                }
+                Some(')') => {
+                    self.advance();
+                    arr.push(Token::RightParent);
+                }
+                Some('+') => {
+                    self.advance();
+                    arr.push(Token::Plus);
+                }
+                Some('-') => {
+                    self.advance();
+                    arr.push(Token::Minus);
+                }
+                Some('*') => {
+                    self.advance();
+                    arr.push(Token::Mul);
+                }
+                Some('/') => {
+                    self.advance();
+                    arr.push(Token::Div);
+                }
+                Some(',') => {
+                    self.advance(); // just a separator between items
+                }
+                Some(other) => {
+                    panic!("Unexpected character in list: '{}'", other);
+                }
+                None => {
+                    panic!("Unexpected end of input in list");
+                }
+            }
+        }
+
+        Token::List(arr)
+    }
     pub fn lex_comment(&mut self) -> Token {
         self.skip_white_space();
         while let Some(c) = self.peek() {
-            println!("c: {}", c);
             if c == '~' {
-                println!("break here you bozo");
                 break;
             } else {
                 self.advance();
                 continue;
             }
         }
-        println!("return");
         self.advance();
         return Token::Comment;
     }
@@ -127,7 +183,6 @@ impl Lexer {
     }
     pub fn lex_char(&mut self) -> Token {
         let ch: char;
-        println!("self.peek: {}", self.peek().unwrap());
         if self.peek().unwrap().is_ascii() {
             ch = self.peek().unwrap();
             self.advance();
@@ -141,7 +196,6 @@ impl Lexer {
         return Token::Char(ch);
     }
     pub fn lex_no_type(&mut self) -> Token {
-        println!("self.peek(): {:?}", self.peek());
         if self.peek().unwrap() != '=' {
             panic!("Unsuported after ':': {:?}", self.peek());
         } else {
@@ -160,14 +214,43 @@ impl Lexer {
                 break;
             }
         }
+        let mut list_type: String = " ".to_string();
+        if ident == "list" {
+            list_type = self.lex_list_type();
+        }
+        if list_type == " " && ident == "list" {
+            panic!("No list type");
+        }
+        println!("list_type: {}", list_type);
         match ident.as_str() {
             "int32" => Token::Type(Typees::Int32),
             "char" => Token::Type(Typees::Char),
             "string" => Token::Type(Typees::Stringg),
+            "list" => Token::Type(Typees::List(match list_type.as_str() {
+                "int32" => Box::new(Typees::Int32),
+                "string" => Box::new(Typees::Stringg),
+                "char" => Box::new(Typees::Char),
+                _ => panic!("Invadlid type in list"),
+            })),
             _ => panic!("Invalid type"),
         }
     }
-
+    pub fn lex_list_type(&mut self) -> String {
+        self.skip_white_space();
+        self.advance();
+        let mut ident = String::new();
+        while let Some(c) = self.peek() {
+            println!("{}", c);
+            if c == '>' {
+                break;
+            } else {
+                ident.push(c);
+                self.advance();
+            }
+        }
+        self.advance();
+        return ident;
+    }
     pub fn lex_ident(&mut self, ch: char) -> Token {
         let mut ident = ch.to_string();
         while let Some(c) = self.peek() {
@@ -186,7 +269,18 @@ impl Lexer {
             c => Token::Ident(c.to_string()),
         }
     }
-
+    pub fn lex_number_list(&mut self) -> Token {
+        let mut ident = String::new();
+        while let Some(c) = self.peek() {
+            if c.is_ascii_digit() {
+                ident.push(c);
+                self.advance();
+            } else {
+                break;
+            }
+        }
+        return Token::Number(ident.parse().unwrap());
+    }
     pub fn lex_number(&mut self, ch: char) -> Token {
         let mut ident = ch.to_string();
         while let Some(c) = self.peek() {

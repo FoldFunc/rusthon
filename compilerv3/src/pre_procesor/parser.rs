@@ -164,6 +164,25 @@ impl Ast {
                             }
                             asm_lines.push(format!("{}mov byte [rax + {}], 0", spaces, val.len())); // null terminator
                         }
+                        "list<Int32>" => {
+                            let list_val: Vec<i32> = val
+                                .split_whitespace()
+                                .map(|s| s.parse::<i32>().expect("Invalid input"))
+                                .collect();
+                            let len = list_val.len() * 8;
+                            asm_lines.push(format!("{}mov rdi, {}", spaces, len));
+                            asm_lines.push(format!("{}call malloc", spaces));
+                            asm_lines
+                                .push(format!("{}mov qword [r12 + {}], rax", spaces, new_offset));
+                            let mut offset_local = 0;
+                            for c in list_val {
+                                asm_lines.push(format!(
+                                    "{}mov qword [rax + {}], {}",
+                                    spaces, offset_local, c
+                                ));
+                                offset_local += 8;
+                            }
+                        }
                         _ => panic!("Unsupported type '{}'", typee),
                     }
                 }
@@ -338,6 +357,7 @@ impl Parser {
                 Typees::Int32 => "int32".to_string(),
                 Typees::Char => "char".to_string(),
                 Typees::Stringg => "string".to_string(),
+                Typees::List(n) => format!("list<{:?}>", n),
             },
             _ => panic!("Invalid type"),
         };
@@ -363,8 +383,53 @@ impl Parser {
                 let rawdawg: i32 = self.parse_binary();
                 rawdawg.to_string()
             }
+            Token::List(l) => {
+                let mut lret: String = String::new();
+
+                let mut i = 0;
+                while i < l.len() {
+                    let token = &l[i];
+                    match token {
+                        Token::Number(n) => {
+                            lret.push_str(&n.to_string());
+                            lret.push(' ');
+                            i += 1;
+                        }
+                        Token::Char(c) => {
+                            lret.push_str(&c.to_string());
+                            lret.push(' ');
+                            i += 1;
+                        }
+                        Token::Stringg(s) => {
+                            lret.push_str(&s);
+                            lret.push(' ');
+                            i += 1;
+                        }
+                        Token::LeftParent => {
+                            // Parse the expression from the list slice starting at i
+                            let mut subparser = Parser {
+                                tokens: l[i..].to_vec(), // Clone from current list index
+                                position: 0,
+                                vars: self.vars.clone(),
+                            };
+                            let value = subparser.parse_binary();
+                            lret.push_str(&value.to_string());
+                            lret.push(' ');
+
+                            // Skip over the tokens that were parsed
+                            let consumed = subparser.position;
+                            i += consumed;
+                        }
+                        _ => panic!("Invalid type inside list: {:?}", token),
+                    }
+                }
+
+                self.advance(); // consume the List token
+                lret
+            }
             _ => panic!("Invalid value: {:?}", self.current()),
         };
+        println!("self.current() parser: {:?}", self.current());
         assert!(self.eat(&Token::SemiColon));
         self.vars.push((name.clone(), val.clone()));
         return Stmt::Var {
@@ -503,6 +568,7 @@ impl Parser {
                 Typees::Int32 => "int32".to_string(),
                 Typees::Char => "char".to_string(),
                 Typees::Stringg => "string".to_string(),
+                Typees::List(n) => format!("list<{:?}>", n),
             },
             _ => panic!("Invalid type"),
         };
