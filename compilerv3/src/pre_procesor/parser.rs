@@ -1,3 +1,30 @@
+/*
+    Mission for tommorow (as reading today):
+    Re factor deez nuts (parser),
+    and also assembly generation acordingly.
+
+    It needs to be a hecking tree not a list you bozo.
+
+    This will allow to add another step of complicity
+    by adding the IR (intermidiate representation)
+    to this compiler.
+    
+    So this file should take the Vec<Token>
+    and return a Abstract syntax TREE,
+    This TREE shouldn't have any values simplified
+    ex:
+        input: return (1 + 3 / 4 - (10 * 9))
+        syntax tree for that:
+         Return
+           |
+         Binary(-)
+        /         \
+   Binary(+)      Binary(*)
+   /       \      /       \
+  1      Binary(/)      10   9
+          /    \
+         3      4
+*/
 use crate::pre_procesor::lexer::Token;
 use crate::pre_procesor::lexer::Typees;
 use crate::pre_procesor::ast::Ast;

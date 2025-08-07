@@ -32,13 +32,6 @@
   (<val> + <val> - (<val> * <val>))
 ~
 function main() {
-    let x -> int32 = 2;
-    let y -> int32 = 3;
-    if (x == y) {
-        let z -> int32 = 1;
-        return z;
-    } else {
-        let x -> int32 = 2;
-        return x;
-    }
+    let x -> int32 = 10;
+    return x;
 }
