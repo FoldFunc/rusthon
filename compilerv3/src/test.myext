@@ -32,6 +32,6 @@
   (<val> + <val> - (<val> * <val>))
 ~
 function main() {
-    let x -> int32 = 10;
+    let x = 11;
     return x;
 }

@@ -1,5 +1,5 @@
 use crate::pre_procesor::lexer;
-use crate::pre_procesor::parser;
+use crate::pre_procesor::parser::Parser;
 use crate::pre_procesor::ast::Ast;
 pub fn pre_proces(file: &String) -> Ast {
     let mut tokens = Vec::new();
@@ -14,13 +14,8 @@ pub fn pre_proces(file: &String) -> Ast {
         }
         tokens.push(token);
     }
-    for token in &tokens {
-        println!("token: {:?}", token);
-    }
-    println!("\n");
-    let mut parser = parser::Parser::new(tokens.to_vec());
+    println!("{:?}", tokens);
+    let mut parser = Parser::new(tokens);
     let ast = parser.parse();
-    println!("AST debug:\n{:?}", &ast);
-    println!("AST:\n{}", &ast);
     return ast;
 }
