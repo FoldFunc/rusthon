@@ -40,8 +40,7 @@ impl code_generator {
                     panic!("no such variable: {}", name);
                 }
                 let offset = self.variables.get(name).unwrap();
-                self.asm.push(format!("    mov rax, [rsp + {}]", offset.stack_loc * 8));
-                self.asm.push(format!("    push rax"));
+                self.asm.push(format!("    push QWORD [rsp + {}]", (self.stack_size - offset.stack_loc - 1) * 8));
             }
             other => panic!("Not supported for now: {:?}", other),
         }
