@@ -3,53 +3,65 @@ use crate::pre_procesor::{
     stmt::{Expr, Stmt},
 };
 use std::collections::HashMap;
+pub struct Var {
+    stack_loc: i32,
+}
 pub struct code_generator {
     asm: Vec<String>,
     ast: Ast,
-    stack_pos: i32,
-    variables: HashMap<String, i32>, // maps variable names to their stack position
+    stack_size: i32,
+    variables: HashMap<String, Var>, // maps variable names to their stack position
 }
 impl code_generator {
     pub fn new(ast: &Ast) -> Self {
         code_generator {
             asm: Vec::new(),
             ast: ast.clone(),
-            stack_pos: 0,
+            stack_size: 0,
             variables: HashMap::new(),
         }
+    }
+    pub fn push(&mut self, reg: &str) {
+        self.asm.push(format!("    push {}", reg));
+        self.stack_size +=1;
+    }
+    pub fn pop(&mut self, reg: &str) {
+        self.asm.push(format!("    pop {}", reg));
+        self.stack_size -=1;
     }
     pub fn codegen_expr(&mut self, expr: &Expr) {
         match expr {
             Expr::Int_lit { val } => {
                 self.asm.push(format!("    mov rax, {}", val));
-                self.asm.push("    push rax".to_string());
-                self.stack_pos += 1;
+                self.push("rax");
             }
             Expr::Ident { name } => {
-                if let Some(offset) = self.variables.get(name) {
-                    self.asm.push(format!(
-                        "    mov rax, [rsp + {}]",
-                        (self.stack_pos - 1 - offset) * 8
-                    ));
-                } else {
-                    panic!("Undefined variable: {}", name);
+                if !self.variables.contains_key(name) {
+                    panic!("no such variable: {}", name);
                 }
+                let offset = self.variables.get(name).unwrap();
+                self.asm.push(format!("    mov rax, [rsp + {}]", offset.stack_loc * 8));
+                self.asm.push(format!("    push rax"));
             }
+            other => panic!("Not supported for now: {:?}", other),
         }
     }
     pub fn codegen_stmt(&mut self, stmt: Stmt) {
         match stmt {
             Stmt::Return { expr } => {
                 self.codegen_expr(&expr);
-                self.asm
-                    .push(format!("    mov rdi, rax"));
+                self.pop("rdi");
                 self.asm.push("    mov rax, 60".to_string()); // syscall number for exit
                 self.asm.push("    syscall".to_string());
             }
             Stmt::Var { name, expr } => {
+                if self.variables.contains_key(&name) {
+                    panic!("Variable already assigned");
+                }
+                self.variables.insert(name, Var { stack_loc: self.stack_size });
                 self.codegen_expr(&expr);
-                self.variables.insert(name, self.stack_pos - 1); // top of stack after push
             }
+            other => panic!("Not supported for now: {:?}", other),
         }
     }
     pub fn codegen_fn(&mut self, function: &Node_Fucntion) {
