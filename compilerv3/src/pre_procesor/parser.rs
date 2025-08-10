@@ -1,6 +1,6 @@
 use crate::pre_procesor::ast::{Ast, Node_Fucntion};
 use crate::pre_procesor::lexer::Token;
-use crate::pre_procesor::stmt::{Expr, Stmt};
+use crate::pre_procesor::stmt::{Expr, Op, Stmt, Term};
 
 #[derive(Clone)]
 pub struct Parser {
@@ -39,15 +39,56 @@ impl Parser {
         }
     }
 
-    pub fn parse_expr(&mut self) -> Expr {
+    pub fn parse_term(&mut self) -> Term {
         match self.peek(None) {
-            Token::Number{ val } => {
+            Token::Number { val } => {
                 self.advance(Some(1));
-                Expr::Int_lit{ val: val }
+                Term::Int_lit { val }
             }
             Token::Ident { name } => {
                 self.advance(Some(1));
-                Expr::Ident{ name: name }
+                Term::Ident { name }
+            }
+            other => panic!("Invalid token in parse_term: {:?}", other),
+        }
+    }
+    pub fn parse_binary_expr(&mut self, min_prec: u8) -> Expr {
+        let mut left = Expr::Term(self.parse_term());
+        while let Some(op) = self.match_operator() {
+            let prec = op.precedence();
+            if prec < min_prec {
+                break;
+            }
+            self.advance(Some(1));
+            let right = self.parse_binary_expr(prec + 1);
+            left = Expr::Binary {
+                left: Box::new(left),
+                op: op,
+                right: Box::new(right),
+            };
+        }
+        left
+    }
+    fn match_operator(&self) -> Option<Op> {
+        match self.peek(None) {
+            Token::Plus => Some(Op::Plus),
+            Token::Minus => Some(Op::Minus),
+            Token::Mul => Some(Op::Mul),
+            Token::Div => Some(Op::Div),
+            Token::EqulesDouble => Some(Op::Equals),
+            _ => None,
+        }
+    }
+    pub fn parse_expr(&mut self) -> Expr {
+        match self.peek(None) {
+            Token::Number { .. } | Token::Ident { .. } => {
+                if self.peek(Some(1)) == Token::SemiColon {
+                    let term = self.parse_term();
+                    Expr::Term(term)
+                } else {
+                    let binary_expr = self.parse_binary_expr(0);
+                    return binary_expr;
+                }
             }
             expr => panic!("Invalid value in parse_expr: {:?}", expr),
         }
@@ -63,9 +104,9 @@ impl Parser {
             }
             Token::Var_Decl => {
                 self.advance(Some(1));
-                let name = self.peek(None);
+                let name_token = self.peek(None);
                 let name_name: String;
-                match name {
+                match name_token {
                     Token::Ident { name } => name_name = name,
                     other => panic!("Invalid type after var name: {:?}", other),
                 }
@@ -73,7 +114,10 @@ impl Parser {
                 assert!(self.eat(Token::Assign));
                 let expr = self.parse_expr();
                 assert!(self.eat(Token::SemiColon));
-                Stmt::Var { name: name_name, expr: expr }
+                Stmt::Var {
+                    name: name_name,
+                    expr,
+                }
             }
             token => panic!("Invalid value in parse_stmt: {:?}", token),
         }
@@ -84,7 +128,7 @@ impl Parser {
         let mut i = 0;
         while i < self.tokens.len() {
             if self.tokens[i] == Token::Func_Decl {
-                if let Token::Ident{name} = &self.tokens[i + 1] {
+                if let Token::Ident { name } = &self.tokens[i + 1] {
                     functions.push(Node_Fucntion {
                         name: name.clone(),
                         stmts: Vec::new(),
@@ -105,7 +149,12 @@ impl Parser {
         assert!(self.peek(None) == Token::Func_Decl);
         self.advance(Some(1));
 
-        assert!(self.peek(None) == Token::Ident{ name: func.name.clone()});
+        assert!(
+            self.peek(None)
+                == Token::Ident {
+                    name: func.name.clone()
+                }
+        );
         self.advance(Some(1));
 
         assert!(self.peek(None) == Token::LeftParent);
@@ -135,6 +184,7 @@ impl Parser {
             let body = self.parse_function(&function);
             function.stmts = body;
         }
+        println!("ast: \n{:?}", ast);
         ast
     }
 }

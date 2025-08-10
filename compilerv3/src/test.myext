@@ -1,38 +1,29 @@
 ~ This is a comment 
   The entry point to the program is main function.
   Every file that you will compile must have this function.
-~
-~
+
   Availeble key words:
   - let => assigns variable on heap, 2 variations: strong with type and quick with only val.
-  - update => update variable on heap, you can change type.
   - return => calls exit with val (0 - 255).
   - function => adds a new function to assembly program.
-~
-~
+
   Syntax:
-  let <name> -> <type> = <val>;
-  let <name> :=  <val>;
-
-  update <name> -> <type> = <val>;
-  update <name> :=  <val>;
-
+  let <ident> = <expr>;
   return <val>;
-
   function <name> () {<stmts>}
-~
-~
-  Types:
-  - int32
-  - char
-  - string
-~
-~
   Booleans expr:
-  (<val> + <val> - (<val> * <val>))
+  <val> + <val> - <val> * <val>
+
+    IR:
+    define main{
+        x = 9;
+        return 9;
+    }
+
+
 ~
 function main() {
-    let x = 7;
+    let x = 7 + 2 * 3 - 4;
     let y = 8;
     return x;
 }

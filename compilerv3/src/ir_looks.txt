@@ -1,0 +1,17 @@
+function <name>
+function <name>
+
+f<name> {
+    <Simple_Stmt>
+    <Simple_Stmt>
+    <Simple_Stmt>
+    <Simple_Stmt>
+    <Simple_Stmt>
+}
+f<name> {
+    <Simple_Stmt>
+    <Simple_Stmt>
+    <Simple_Stmt>
+    <Simple_Stmt>
+    <Simple_Stmt>
+}

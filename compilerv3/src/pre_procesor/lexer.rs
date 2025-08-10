@@ -22,6 +22,15 @@ pub enum Token {
     Number {
         val: i32,
     },
+    EqulesDouble,
+    Plus,
+    Minus,
+    Mul,
+    Div,
+    MoreThan,
+    LessThan,
+    ArrowLeft,
+    ArrowRight,
     LeftParent,
     RightParent,
     LeftSBracket,
@@ -69,11 +78,38 @@ impl Lexer {
             Some(ch) if ch.is_ascii_alphabetic() || ch == '_' => self.lex_ident(ch),
             Some(ch) if ch.is_ascii_digit() => self.lex_number(ch),
             Some(';') => Token::SemiColon,
+            Some('+') => Token::Plus,
+            Some('-') => Token::Minus,
+            Some('*') => Token::Mul,
+            Some('/') => Token::Div,
             Some(')') => Token::RightParent,
             Some('(') => Token::LeftParent,
             Some('{') => Token::LeftSBracket,
             Some('}') => Token::RightSBracket,
-            Some('=') => Token::Assign,
+            Some('>') => {
+                if self.peek().unwrap_or(' ') == '=' {
+                    self.advance();
+                    return Token::MoreThan;
+                } else {
+                    return Token::ArrowRight;
+                }
+            }
+            Some('<') => {
+                if self.peek().unwrap_or(' ') == '=' {
+                    self.advance();
+                    return Token::LessThan;
+                } else {
+                    return Token::ArrowLeft;
+                }
+            }
+            Some('=') => {
+                if self.peek().unwrap_or(' ') == '=' {
+                    self.advance();
+                    return Token::EqulesDouble;
+                } else {
+                    return Token::Assign;
+                }
+            },
             Some('~') => self.lex_comment(),
             None => Token::EOF,
             Some(c) => panic!("Not supported token: {}", c),
@@ -109,18 +145,6 @@ impl Lexer {
             c => Token::Ident{name: c.to_string()},
         }
     }
-    pub fn lex_number_list(&mut self) -> Token {
-        let mut ident = String::new();
-        while let Some(c) = self.peek() {
-            if c.is_ascii_digit() {
-                ident.push(c);
-                self.advance();
-            } else {
-                break;
-            }
-        }
-        return Token::Number{val: ident.parse().unwrap()};
-    }
     pub fn lex_number(&mut self, ch: char) -> Token {
         let mut ident = ch.to_string();
         while let Some(c) = self.peek() {
@@ -133,12 +157,4 @@ impl Lexer {
         }
         return Token::Number{val: ident.parse().unwrap()};
     }
-}
-pub fn find_var_offset(offset: &[(String, i32)], name: &str) -> i32 {
-    for (var_name, off) in offset {
-        if var_name == name {
-            return *off;
-        }
-    }
-    panic!("Variable '{}' out of scope", name);
 }
