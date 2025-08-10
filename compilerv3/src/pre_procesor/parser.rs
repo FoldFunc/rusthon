@@ -96,6 +96,13 @@ impl Parser {
 
     pub fn parse_stmt(&mut self) -> Stmt {
         match self.peek(None) {
+            Token::Ident { name } => {
+                self.advance(Some(1));
+                assert!(self.eat(Token::Assign));
+                let expr = self.parse_expr();
+                assert!(self.eat(Token::SemiColon));
+                Stmt::Var { name: name, expr: expr }
+            }
             Token::Return => {
                 self.advance(Some(1));
                 let expr = self.parse_expr();
@@ -186,5 +193,6 @@ impl Parser {
         }
         println!("ast: \n{:?}", ast);
         ast
+
     }
 }

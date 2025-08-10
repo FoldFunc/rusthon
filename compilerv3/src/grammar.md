@@ -6,6 +6,7 @@ $$
 \begin{cases}
 \text{return \text{[expr]}}; \\
 \text{let ident = [\text{expr}]}; \\
+\text{ident = [\text{expr}]}; \\
 \end{cases} \\
 [\text{term}] &\to
 \begin{cases}

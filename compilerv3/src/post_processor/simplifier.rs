@@ -1,17 +1,23 @@
+use std::collections::HashMap;
+
+// Adjust these imports according to your project structure
 use crate::pre_procesor::ast::{Ast, Node_Fucntion};
-use crate::pre_procesor::stmt::{Expr, Stmt, Term, Op};
+use crate::pre_procesor::stmt::{Expr, Op, Stmt, Term};
 use crate::post_processor::air::{Air, IRExpr, IRFunction, IRStmt};
+
 #[derive(Debug)]
-pub struct Simplyfier {
+pub struct Simplifier {
     ast: Ast,
     ir: Air,
+    vars: HashMap<String, IRExpr>,
 }
 
-impl Simplyfier {
+impl Simplifier {
     pub fn new(ast: &Ast) -> Self {
-        Simplyfier {
+        Simplifier {
             ast: ast.clone(),
             ir: Air::new(),
+            vars: HashMap::new(),
         }
     }
 
@@ -22,10 +28,7 @@ impl Simplyfier {
                 let right = Box::new(self.simplify_binary(*right));
 
                 match (&*left, &*right) {
-                    (
-                        Expr::Term(Term::Int_lit { val: l }),
-                        Expr::Term(Term::Int_lit { val: r }),
-                    ) => {
+                    (Expr::Term(Term::Int_lit { val: l }), Expr::Term(Term::Int_lit { val: r })) => {
                         let val = match op {
                             Op::Plus => l + r,
                             Op::Minus => l - r,
@@ -63,29 +66,41 @@ impl Simplyfier {
         }
     }
 
-    pub fn simplify_stmt(&self, stmt: &Stmt) -> IRStmt {
+    // Now takes &mut self and a mutable reference to the vector of IRStmt
+    pub fn simplify_stmt(&mut self, stmt: &Stmt, stmts: &mut Vec<IRStmt>) {
         match stmt {
             Stmt::Var { name, expr } => {
                 let expr_simple = self.simplify_expr(expr);
-                IRStmt::Let {
-                    name: name.clone(),
-                    expr: expr_simple,
-                }
+                // Update or insert the variable's latest value
+                self.vars.insert(name.clone(), expr_simple);
+                // Don't push Let statements here — flush later
             }
             Stmt::Return { expr } => {
+                // Flush all pending variable lets before return
+                for (var, val) in self.vars.drain() {
+                    stmts.push(IRStmt::Let { name: var, expr: val });
+                }
                 let expr_simple = self.simplify_expr(expr);
-                IRStmt::Return(expr_simple)
+                stmts.push(IRStmt::Return(expr_simple));
             }
             other => panic!("Statement not supported: {:?}", other),
         }
     }
 
-    pub fn simplify_fn(&self, function: &Node_Fucntion) -> IRFunction {
-        let stmts = function
-            .stmts
-            .iter()
-            .map(|stmt| self.simplify_stmt(stmt))
-            .collect();
+    pub fn simplify_fn(&mut self, function: &Node_Fucntion) -> IRFunction {
+        self.vars.clear();
+        let mut stmts = Vec::new();
+
+        for stmt in &function.stmts {
+            self.simplify_stmt(stmt, &mut stmts);
+        }
+
+        // Flush any remaining vars if no Return was found
+        if !stmts.iter().any(|s| matches!(s, IRStmt::Return(_))) {
+            for (var, val) in self.vars.drain() {
+                stmts.push(IRStmt::Let { name: var, expr: val });
+            }
+        }
 
         IRFunction {
             name: function.name.clone(),
@@ -95,12 +110,14 @@ impl Simplyfier {
 
     pub fn simplify(&mut self) -> Air {
         self.ir.ir.clear();
-
-        for function in &self.ast.node_funcitons {
+        let ast_nodes = &self.ast.node_funcitons.clone();
+        for function in ast_nodes{
             let ir_func = self.simplify_fn(function);
             self.ir.ir.push(ir_func);
         }
-        println!("ir: \n{:?}", &self.ir);
+
+        println!("Simplified IR:\n{:?}", &self.ir);
         self.ir.clone()
     }
 }
+

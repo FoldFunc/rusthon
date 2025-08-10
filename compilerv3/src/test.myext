@@ -24,6 +24,6 @@
 ~
 function main() {
     let x = 7 + 2 * 3 - 4;
-    let y = 8;
+    x = 10;
     return x;
 }
