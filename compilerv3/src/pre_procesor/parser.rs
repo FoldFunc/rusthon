@@ -186,6 +186,20 @@ impl Parser {
                 assert!(self.eat(Token::SemiColon));
                 Stmt::Return { expr }
             }
+            Token::Var_Update => {
+                self.advance(Some(1));
+                let name_token = self.peek(None);
+                let name: String;
+                match name_token {
+                    Token::Ident { name: name_name } => name = name_name,
+                    other => panic!("Invalid type after var name: {:?}", other), 
+                }
+                self.advance(Some(1));
+                assert!(self.eat(Token::Assign));
+                let expr = self.parse_expr();
+                assert!(self.eat(Token::SemiColon));
+                Stmt::VarUpdate { name: name, expr: expr }
+            }
             Token::Var_Decl => {
                 self.advance(Some(1));
                 let name_token = self.peek(None);

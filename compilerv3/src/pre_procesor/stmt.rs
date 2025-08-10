@@ -49,6 +49,10 @@ pub enum Stmt {
         name: String,
         expr: Expr,
     },
+    VarUpdate {
+        name: String,
+        expr: Expr,
+    },
     Scope {
         stmts: Box<Vec<Stmt>>,
     }

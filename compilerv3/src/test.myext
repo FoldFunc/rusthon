@@ -20,11 +20,7 @@
 function main() {
     let x = 10;
     {
-        x = 6;
+        let x = 11;
     }
-    x = 11;
-    x = 12;
-    x = 13;
-    x = 14;
     return x;
 }

@@ -138,6 +138,14 @@ impl Simplifier {
                     expr: expr_simple,
                 });
             }
+            Stmt::VarUpdate { name, expr } => {
+                let expr_simple = self.simplify_expr(expr);
+                vars.insert(name.clone(), expr_simple.clone());
+                stmts.push(IRStmt::ReAssign {
+                    name: name.clone(),
+                    expr: expr_simple,
+                });
+            }
             Stmt::Return { expr } => {
                 let expr_simple = self.simplify_expr(expr);
                 stmts.push(IRStmt::Return(expr_simple));

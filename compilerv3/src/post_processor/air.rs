@@ -6,7 +6,7 @@ pub enum IRExpr {
 #[derive(Debug, Clone)]
 pub enum IRStmt {
     Let { name: String, expr: IRExpr },
-    Assign { name: String, expr: IRExpr},
+    ReAssign { name: String, expr: IRExpr},
     Return(IRExpr),
     Scope { stmts: Vec<IRStmt>},
 }

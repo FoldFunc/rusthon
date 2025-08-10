@@ -13,6 +13,7 @@ pub enum Typees {
 pub enum Token {
     Func_Decl,
     Var_Decl,
+    Var_Update,
     Return,
     SemiColon,
     Assign,
@@ -158,6 +159,7 @@ impl Lexer {
             "function" => Token::Func_Decl,
             "return" => Token::Return,
             "let" => Token::Var_Decl,
+            "update" => Token::Var_Update,
             c => Token::Ident{name: c.to_string()},
         }
     }

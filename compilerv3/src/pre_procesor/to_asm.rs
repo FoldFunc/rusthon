@@ -1,5 +1,5 @@
 use crate::post_processor::air::{Air, IRExpr, IRFunction, IRStmt};
-use std::collections::HashMap;
+use std::{collections::HashMap, hash::Hash};
 
 #[derive(Clone, Debug)]
 pub struct Var {
@@ -9,7 +9,7 @@ pub struct Var {
 pub struct CodeGenerator {
     asm: Vec<String>,
     ast: Air,
-    stack_size: i32,           // number of values on stack
+    stack_size: i32,                 // number of values on stack
     variables: HashMap<String, Var>, // maps variable names to stack offset
 }
 
@@ -35,18 +35,22 @@ impl CodeGenerator {
 
     pub fn load_var(&mut self, name: &str) {
         let var = self.variables.get(name).expect("variable not found");
-        let offset = (self.stack_size - var.stack_loc - 1) * 8;
+        let offset = (self.stack_size - var.stack_loc) * 8;
         self.asm.push(format!("    mov rax, [rsp + {}]", offset));
         self.push("rax");
     }
-
-    pub fn store_var(&mut self, name: &str) {
-        let var = self.variables.get(name).expect("variable not found");
-        let offset = (self.stack_size - var.stack_loc - 1) * 8;
-        self.pop("rax");
-        self.asm.push(format!("    mov [rsp + {}], rax", offset));
+    pub fn codegen_update(&mut self, expr: &IRExpr, stack_pos: u32) {
+        match expr {
+            IRExpr::Int(n) => {
+                self.asm.push(format!("    mov rax, {}", n));
+                self.asm.push(format!("    mov [rsp + {}], rax", (stack_pos - 1) * 8));
+            }
+            IRExpr::Var(name) => {
+                self.load_var(name);
+                self.asm.push(format!("    mov [rsp + {}], rax", stack_pos));
+            }
+        }
     }
-
     pub fn codegen_expr(&mut self, expr: &IRExpr) {
         match expr {
             IRExpr::Int(n) => {
@@ -61,6 +65,7 @@ impl CodeGenerator {
     }
 
     pub fn codegen_stmt(&mut self, stmt: IRStmt) {
+        println!("self.variables: {:?}", self.variables);
         match stmt {
             IRStmt::Return(expr) => {
                 self.codegen_expr(&expr);
@@ -72,7 +77,9 @@ impl CodeGenerator {
                 // Save current stack info
                 let saved_stack_size = self.stack_size;
                 let saved_variables = self.variables.clone();
-
+                println!("saved_stack_size: {}", self.stack_size);
+                println!("saved_variables: {:?}", self.variables.clone());
+                self.variables = HashMap::new();
                 for stmt in stmts {
                     self.codegen_stmt(stmt);
                 }
@@ -87,9 +94,7 @@ impl CodeGenerator {
             }
             IRStmt::Let { name, expr } => {
                 if self.variables.contains_key(&name) {
-                    // Variable already exists — treat as assignment
-                    self.codegen_expr(&expr);
-                    self.store_var(&name);
+                    panic!("Variable already exsists");
                 } else {
                     // New variable — push expr on stack and record offset
                     self.codegen_expr(&expr);
@@ -99,6 +104,19 @@ impl CodeGenerator {
                             stack_loc: self.stack_size,
                         },
                     );
+                }
+            }
+            IRStmt::ReAssign { name, expr } => {
+                if !self.variables.contains_key(&name) {
+                    panic!("Variable does not exist");
+                } else {
+                    let var_info = self.variables.get(&name).expect("Checked contains_key");
+
+                    let stack_pos: u32 = var_info.stack_loc as u32;
+
+                    self.codegen_update(&expr, stack_pos);
+
+                    // self.variables.insert(name.clone(), Var { stack_loc: new_stack_pos });
                 }
             }
             other => panic!("Not supported for now: {:?}", other),
@@ -123,4 +141,3 @@ impl CodeGenerator {
         self.asm.clone()
     }
 }
-
