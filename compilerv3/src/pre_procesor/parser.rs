@@ -1,3 +1,5 @@
+use std::fmt::Binary;
+
 use crate::pre_procesor::ast::{Ast, Node_Fucntion};
 use crate::pre_procesor::lexer::Token;
 use crate::pre_procesor::stmt::{Expr, Op, Stmt, Term};
@@ -49,24 +51,34 @@ impl Parser {
                 self.advance(Some(1));
                 Term::Ident { name }
             }
+            Token::LeftParent => {
+                self.advance(Some(1));
+                let expr = self.parse_binary_expr(0);
+                assert!(self.eat(Token::RightParent), "Expected ')'");
+                Term::Grouped {
+                    expr: Box::new(expr),
+                }
+            }
             other => panic!("Invalid token in parse_term: {:?}", other),
         }
     }
     pub fn parse_binary_expr(&mut self, min_prec: u8) -> Expr {
         let mut left = Expr::Term(self.parse_term());
+
         while let Some(op) = self.match_operator() {
             let prec = op.precedence();
             if prec < min_prec {
                 break;
             }
-            self.advance(Some(1));
+            self.advance(Some(1)); // consume operator
             let right = self.parse_binary_expr(prec + 1);
             left = Expr::Binary {
                 left: Box::new(left),
-                op: op,
+                op,
                 right: Box::new(right),
             };
         }
+
         left
     }
     fn match_operator(&self) -> Option<Op> {
@@ -80,28 +92,84 @@ impl Parser {
         }
     }
     pub fn parse_expr(&mut self) -> Expr {
-        match self.peek(None) {
-            Token::Number { .. } | Token::Ident { .. } => {
-                if self.peek(Some(1)) == Token::SemiColon {
-                    let term = self.parse_term();
-                    Expr::Term(term)
-                } else {
-                    let binary_expr = self.parse_binary_expr(0);
-                    return binary_expr;
-                }
-            }
-            expr => panic!("Invalid value in parse_expr: {:?}", expr),
-        }
+        self.parse_binary_expr(0)
     }
-
     pub fn parse_stmt(&mut self) -> Stmt {
         match self.peek(None) {
             Token::Ident { name } => {
                 self.advance(Some(1));
-                assert!(self.eat(Token::Assign));
-                let expr = self.parse_expr();
-                assert!(self.eat(Token::SemiColon));
-                Stmt::Var { name: name, expr: expr }
+                if self.eat(Token::Assign) {
+                    let expr = self.parse_expr();
+                    assert!(self.eat(Token::SemiColon));
+                    Stmt::Var {
+                        name: name,
+                        expr: expr,
+                    }
+                } else {
+                    match self.peek(None) {
+                        Token::PlusEq => {
+                            self.advance(Some(1));
+                            let rhs_expr = self.parse_expr();
+                            assert!(self.eat(Token::SemiColon));
+                            let lhs_expr = Expr::Term(Term::Ident { name: name.clone() });
+                            let new_expr = Expr::Binary {
+                                left: Box::new(lhs_expr),
+                                op: Op::Plus,
+                                right: Box::new(rhs_expr),
+                            };
+                            return Stmt::Var {
+                                name: name,
+                                expr: new_expr,
+                            };
+                        }
+                        Token::MinusEq => {
+                            self.advance(Some(1));
+                            let rhs_expr = self.parse_expr();
+                            assert!(self.eat(Token::SemiColon));
+                            let lhs_expr = Expr::Term(Term::Ident { name: name.clone() });
+                            let new_expr = Expr::Binary {
+                                left: Box::new(lhs_expr),
+                                op: Op::Minus,
+                                right: Box::new(rhs_expr),
+                            };
+                            return Stmt::Var {
+                                name: name,
+                                expr: new_expr,
+                            };
+                        }
+                        Token::MulEq => {
+                            self.advance(Some(1));
+                            let rhs_expr = self.parse_expr();
+                            assert!(self.eat(Token::SemiColon));
+                            let lhs_expr = Expr::Term(Term::Ident { name: name.clone() });
+                            let new_expr = Expr::Binary {
+                                left: Box::new(lhs_expr),
+                                op: Op::Mul,
+                                right: Box::new(rhs_expr),
+                            };
+                            return Stmt::Var {
+                                name: name,
+                                expr: new_expr,
+                            };
+                        }
+                        Token::DivEq => {
+                            self.advance(Some(1));
+                            let rhs_expr = self.parse_expr();
+                            assert!(self.eat(Token::SemiColon));
+                            let lhs_expr = Expr::Term(Term::Ident { name: name.clone() });
+                            let new_expr = Expr::Binary {
+                                left: Box::new(lhs_expr),
+                                op: Op::Div,
+                                right: Box::new(rhs_expr),
+                            };
+                            return Stmt::Var {
+                                name: name,
+                                expr: new_expr,
+                            };
+                        }
+                        some => panic!("Invalid operator: {:?}", some),
+                    }
+                }
             }
             Token::Return => {
                 self.advance(Some(1));
@@ -193,6 +261,5 @@ impl Parser {
         }
         println!("ast: \n{:?}", ast);
         ast
-
     }
 }

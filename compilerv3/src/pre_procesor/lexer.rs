@@ -16,6 +16,10 @@ pub enum Token {
     Return,
     SemiColon,
     Assign,
+    MinusEq,
+    PlusEq,
+    MulEq,
+    DivEq,
     Ident {
         name: String,
     },
@@ -78,8 +82,20 @@ impl Lexer {
             Some(ch) if ch.is_ascii_alphabetic() || ch == '_' => self.lex_ident(ch),
             Some(ch) if ch.is_ascii_digit() => self.lex_number(ch),
             Some(';') => Token::SemiColon,
-            Some('+') => Token::Plus,
-            Some('-') => Token::Minus,
+            Some('+') => {
+                if self.peek().unwrap_or(' ') == '=' {
+                    self.advance();
+                    return Token::PlusEq;
+                }
+                return Token::Plus;
+            },
+            Some('-') => {
+                if self.peek().unwrap_or(' ') == '=' {
+                    self.advance();
+                    return Token::MinusEq;
+                }
+                return Token::Minus; 
+            },
             Some('*') => Token::Mul,
             Some('/') => Token::Div,
             Some(')') => Token::RightParent,

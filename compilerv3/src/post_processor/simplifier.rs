@@ -1,9 +1,9 @@
 use std::collections::HashMap;
 
 // Adjust these imports according to your project structure
+use crate::post_processor::air::{Air, IRExpr, IRFunction, IRStmt};
 use crate::pre_procesor::ast::{Ast, Node_Fucntion};
 use crate::pre_procesor::stmt::{Expr, Op, Stmt, Term};
-use crate::post_processor::air::{Air, IRExpr, IRFunction, IRStmt};
 
 #[derive(Debug)]
 pub struct Simplifier {
@@ -28,7 +28,10 @@ impl Simplifier {
                 let right = Box::new(self.simplify_binary(*right));
 
                 match (&*left, &*right) {
-                    (Expr::Term(Term::Int_lit { val: l }), Expr::Term(Term::Int_lit { val: r })) => {
+                    (
+                        Expr::Term(Term::Int_lit { val: l }),
+                        Expr::Term(Term::Int_lit { val: r }),
+                    ) => {
                         let val = match op {
                             Op::Plus => l + r,
                             Op::Minus => l - r,
@@ -40,9 +43,27 @@ impl Simplifier {
                                     return Expr::Binary { left, op, right };
                                 }
                             }
-                            Op::Equals => if l == r { 1 } else { 0 },
-                            Op::MoreThan => if l > r { 1 } else { 0 },
-                            Op::LessThan => if l < r { 1 } else { 0 },
+                            Op::Equals => {
+                                if l == r {
+                                    1
+                                } else {
+                                    0
+                                }
+                            }
+                            Op::MoreThan => {
+                                if l > r {
+                                    1
+                                } else {
+                                    0
+                                }
+                            }
+                            Op::LessThan => {
+                                if l < r {
+                                    1
+                                } else {
+                                    0
+                                }
+                            }
                         };
                         Expr::Term(Term::Int_lit { val })
                     }
@@ -62,7 +83,10 @@ impl Simplifier {
         match simplified {
             Expr::Term(Term::Int_lit { val }) => IRExpr::Int(val),
             Expr::Term(Term::Ident { name }) => IRExpr::Var(name),
-            _ => panic!("Expression not supported for simplification: {:?}", simplified),
+            _ => panic!(
+                "Expression not supported for simplification: {:?}",
+                simplified
+            ),
         }
     }
 
@@ -78,7 +102,10 @@ impl Simplifier {
             Stmt::Return { expr } => {
                 // Flush all pending variable lets before return
                 for (var, val) in self.vars.drain() {
-                    stmts.push(IRStmt::Let { name: var, expr: val });
+                    stmts.push(IRStmt::Let {
+                        name: var,
+                        expr: val,
+                    });
                 }
                 let expr_simple = self.simplify_expr(expr);
                 stmts.push(IRStmt::Return(expr_simple));
@@ -98,7 +125,10 @@ impl Simplifier {
         // Flush any remaining vars if no Return was found
         if !stmts.iter().any(|s| matches!(s, IRStmt::Return(_))) {
             for (var, val) in self.vars.drain() {
-                stmts.push(IRStmt::Let { name: var, expr: val });
+                stmts.push(IRStmt::Let {
+                    name: var,
+                    expr: val,
+                });
             }
         }
 
@@ -111,7 +141,7 @@ impl Simplifier {
     pub fn simplify(&mut self) -> Air {
         self.ir.ir.clear();
         let ast_nodes = &self.ast.node_funcitons.clone();
-        for function in ast_nodes{
+        for function in ast_nodes {
             let ir_func = self.simplify_fn(function);
             self.ir.ir.push(ir_func);
         }
@@ -120,4 +150,3 @@ impl Simplifier {
         self.ir.clone()
     }
 }
-

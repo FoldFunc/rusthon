@@ -37,6 +37,7 @@ pub enum Term {
     Ident {
         name: String,
     },
+    Grouped { expr: Box<Expr> },
 }
 
 #[derive(Debug, Clone, PartialEq)]

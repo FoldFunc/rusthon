@@ -9,21 +9,17 @@
 
   Syntax:
   let <ident> = <expr>;
+  <ident> = <expr>;
   return <val>;
   function <name> () {<stmts>}
   Booleans expr:
   <val> + <val> - <val> * <val>
 
-    IR:
-    define main{
-        x = 9;
-        return 9;
-    }
-
 
 ~
 function main() {
-    let x = 7 + 2 * 3 - 4;
-    x = 10;
+    let x = (7 + 2) * 3 - 4;
+    x += 10;
+    x -= 10;
     return x;
 }
