@@ -4,9 +4,14 @@ $$
 [\text{function}] &\to [\text{stmt}]^+ \\
 [\text{stmt}] &\to
 \begin{cases}
+\text{\{[\text{stmts}]}^+\} \\
 \text{return \text{[expr]}}; \\
 \text{let ident = [\text{expr}]}; \\
 \text{ident = [\text{expr}]}; \\
+\text{[math\_operations]};
+\end{cases} \\
+\text{math\_operations} &\to
+\begin{cases}
 \text{ident += [\text{expr}]}; \\
 \text{ident -= [\text{expr}]}; \\
 \text{ident *= [\text{expr}]}; \\

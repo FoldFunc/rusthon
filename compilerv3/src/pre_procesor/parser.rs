@@ -96,6 +96,15 @@ impl Parser {
     }
     pub fn parse_stmt(&mut self) -> Stmt {
         match self.peek(None) {
+            Token::LeftSBracket => {
+                self.advance(Some(1));
+                let mut stmts: Vec<Stmt> = Vec::new();
+                while self.peek(None) != Token::RightSBracket {
+                    stmts.push(self.parse_stmt());
+                }
+                self.advance(Some(1));
+                Stmt::Scope { stmts: Box::new(stmts) }
+            }
             Token::Ident { name } => {
                 self.advance(Some(1));
                 if self.eat(Token::Assign) {
