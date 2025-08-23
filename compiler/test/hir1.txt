@@ -1,0 +1,2 @@
+Var x { value: 13 }
+return Var x;

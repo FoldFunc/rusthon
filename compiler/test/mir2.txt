@@ -1,0 +1,4 @@
+Var x { value: 13 }
+{
+  return 1;
+}

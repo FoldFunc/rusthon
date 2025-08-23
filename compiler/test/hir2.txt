@@ -1,0 +1,10 @@
+Var x { value: 13 }
+if false {
+  return 0;
+}
+if true {
+  return 1;
+}
+else {
+  reutrn 2;
+}

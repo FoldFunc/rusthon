@@ -1,0 +1,11 @@
+let x = 5;
+{
+  x = 10;
+}
+if x == 10 {
+  return 0;
+} elif x == 5 {
+  return 1;
+} else {
+  return 2;
+}
