@@ -1,8 +1,5 @@
-use crate::{
-    intermidiate::intermediate::{IRT, IrExpr, IrStmts},
-    parser::parser::{Expr, Stmts, Term},
-};
-use std::{env::VarError, error::Error};
+use crate::intermidiate::intermediate::{IRT, IrExpr, IrStmts};
+use std::error::Error;
 
 #[derive(Debug, Clone)]
 pub struct Var {
@@ -143,6 +140,7 @@ impl Generator {
         vars_in: Vec<Var>,
     ) -> Result<(), Box<dyn Error>> {
         match stmt {
+            IrStmts::Empty => Ok(()),
             IrStmts::Return(expr) => {
                 let result_var = self.generate_expr(expr, None)?;
                 self.read("rdi", &result_var)?;
@@ -173,6 +171,7 @@ impl Generator {
 
     pub fn generate_stmt(&mut self, stmt: &IrStmts) -> Result<(), Box<dyn Error>> {
         match stmt {
+            IrStmts::Empty => Ok(()),
             IrStmts::Scope { body } => {
                 let saved_vars_len = self.vars.len();
                 let saved_stack_bytes = self.current_stack_bytes;
